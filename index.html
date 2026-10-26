@@ -1,0 +1,2853 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+  <title>BusQ - Campus Transit Companion</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Material Symbols Outlined -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+
+  <!-- Tailwind CSS CDN with custom design tokens -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#6d28d9",
+            "primary-container": "#6d28d9",
+            "on-primary": "#ffffff",
+            "on-primary-container": "#dac5ff",
+            "primary-fixed": "#ede9fe",
+            "primary-fixed-dim": "#d3bbff",
+            "secondary": "#7c3aed",
+            "secondary-container": "#8a4cfc",
+            "on-secondary": "#ffffff",
+            "on-secondary-container": "#fffbff",
+            "secondary-fixed": "#eaddff",
+            "secondary-fixed-dim": "#c4b5fd",
+            "tertiary": "#5c218b",
+            "tertiary-container": "#753ca4",
+            "on-tertiary": "#ffffff",
+            "background": "#fcf8fb",
+            "surface": "#fcf8fb",
+            "surface-bright": "#fcf8fb",
+            "surface-dim": "#ede9fe",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#f6f2f5",
+            "surface-container": "#f0edf0",
+            "surface-container-high": "#eae7ea",
+            "surface-container-highest": "#ddd6fe",
+            "on-surface": "#09090b",
+            "on-surface-variant": "#4a4455",
+            "outline": "#7b7486",
+            "outline-variant": "#ccc3d7",
+            "inverse-surface": "#18181b",
+            "inverse-on-surface": "#f3f0f2",
+            "error": "#dc2626",
+            "error-container": "#ffdad6",
+            "on-error": "#ffffff",
+            "on-error-container": "#93000a"
+          },
+          fontFamily: {
+            sans: ["Plus Jakarta Sans", "sans-serif"],
+            mono: ["Space Grotesk", "monospace"]
+          },
+          borderRadius: {
+            DEFAULT: "0.25rem",
+            lg: "0.5rem",
+            xl: "0.75rem",
+            full: "9999px"
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    @layer base {
+      html, body {
+        width: 100%;
+        min-height: 100%;
+        margin: 0;
+        padding: 0;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: #fcf8fb;
+        color: #09090b;
+      }
+      body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      .pb-safe { padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px); }
+      .pt-safe { padding-top: max(env(safe-area-inset-top, 0px), 8px); }
+    }
+    ::-webkit-scrollbar { display: none; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined' !important;
+      font-weight: normal;
+      font-style: normal;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+  </style>
+
+  <!-- React 18, React Router DOM, and Babel Standalone -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/history@5/umd/history.production.min.js"></script>
+  <script src="https://unpkg.com/react-router@6.3.0/umd/react-router.production.min.js"></script>
+  <script src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-[#fcf8fb] font-sans text-on-surface flex flex-col min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, createContext, useContext, Fragment } = React;
+    const { createRoot } = ReactDOM;
+    const { MemoryRouter, Routes, Route, useNavigate, useLocation } = ReactRouterDOM;
+
+    // --- SHARED TRANSIT STATE CONTEXT ---
+    const TransitContext = createContext();
+
+    const TransitProvider = ({ children }) => {
+      const [role, setRole] = useState("student"); // "student" | "admin"
+      const [user, setUser] = useState({
+        name: "Ananya Sharma",
+        id: "CS-2024-8841",
+        dept: "B.Tech Computer Science (Year 2)",
+        seat: "Window #18",
+        route: "Route 7B • North Campus Express",
+        bus: "Bus #14",
+        plate: "KA-04-E-4289"
+      });
+      const [adminUser] = useState({
+        name: "Rahul Verma",
+        id: "ME-2024-5120",
+        role: "Senior Transit Supervisor & Fleet Coordinator",
+        tier: "Level 3 Master Ops"
+      });
+
+      const [selectedStop, setSelectedStop] = useState({
+        id: "stop-4",
+        num: 4,
+        name: "Pine Valley Junction",
+        walk: "~3 min walk",
+        dist: "260m away",
+        eta: "08:12 AM",
+        amenities: "Shelter available • Solar street lighting • Crosswalk with signal • Monitored campus CCTV"
+      });
+
+      const [alertPreference, setAlertPreference] = useState("5 mins");
+      const [activeAlerts, setActiveAlerts] = useState([
+        {
+          id: 1,
+          category: "proximity",
+          tag: "BUS #14",
+          time: "2m ago",
+          title: "Bus #14 is Approaching Pine Valley!",
+          body: "Your bus is 2 stops away (~5 minutes). Start walking towards Pine Valley Shelter #2 to avoid missing departure.",
+          eta: "~5 min",
+          isUnread: true
+        },
+        {
+          id: 2,
+          category: "delay",
+          tag: "Delay Advisory",
+          time: "18m ago",
+          title: "Minor Delay on North Ring Road",
+          body: "Traffic congestion near Tech Park junction. Adjusted ETA: 08:14 AM (+2 mins delay). Reroute active via Campus Gate 4 bypass.",
+          isUnread: true
+        },
+        {
+          id: 3,
+          category: "news",
+          tag: "Transit Notice",
+          time: "1h ago",
+          title: "Evening Shift Timings Announced",
+          body: "Evening return buses from Campus Bay 3 will operate on schedule at 05:15 PM.",
+          isUnread: true
+        },
+        {
+          id: 4,
+          category: "news",
+          tag: "ROUTE 7B",
+          time: "Yesterday",
+          title: "Substitute Driver Assigned for Route 7B",
+          body: "Driver Rajesh Kumar on duty with vehicle KA-04-E-4289. Safety checklist verified.",
+          isUnread: false
+        }
+      ]);
+
+      // Admin Fleet Roster: Includes Bus #14 plus 2 new buses for Admin Portal only
+      const [adminFleet, setAdminFleet] = useState([
+        {
+          id: "bus-14",
+          number: "Bus #14",
+          label: "14",
+          route: "Route 7B • North Campus Express",
+          driver: "Rajesh Kumar",
+          driverPhone: "+91 98765 43210",
+          plate: "KA-04-E-4289",
+          status: "En Route",
+          statusType: "active", // active | standby | fast
+          speed: "38 km/h",
+          occupancy: "38 / 44",
+          occupancyPercent: 86,
+          occupancyStatus: "Moderate",
+          currentLocation: "AP Secretariat Crossing (Stop #3)",
+          nextStop: "VIT-AP University (Terminal Hub)",
+          etaNext: "3 min",
+          telemetryHealth: "Optimal",
+          fuel: "78%",
+          lastPing: "3s ago"
+        },
+        {
+          id: "bus-08",
+          number: "Bus #08",
+          label: "08",
+          route: "Route 3A • South Perimeter Shuttle",
+          driver: "Sunil Hegde",
+          driverPhone: "+91 98451 88204",
+          plate: "KA-04-F-1102",
+          status: "Boarding",
+          statusType: "standby",
+          speed: "18 km/h",
+          occupancy: "24 / 36",
+          occupancyPercent: 66,
+          occupancyStatus: "Optimal",
+          currentLocation: "Hostel Cluster Gate 3",
+          nextStop: "VIT-AP University (Terminal Hub)",
+          etaNext: "Departs in 2m",
+          telemetryHealth: "Good",
+          fuel: "91%",
+          lastPing: "1s ago"
+        },
+        {
+          id: "bus-21",
+          number: "Bus #21",
+          label: "21",
+          route: "Route 12 • Metro Rail Express Connector",
+          driver: "Vikramjit Singh",
+          driverPhone: "+91 97312 90445",
+          plate: "KA-04-G-7733",
+          status: "Express Transit",
+          statusType: "fast",
+          speed: "52 km/h",
+          occupancy: "42 / 50",
+          occupancyPercent: 84,
+          occupancyStatus: "Filling Fast",
+          currentLocation: "Outer Ring Flyover Bypass",
+          nextStop: "VIT-AP University (Terminal Hub)",
+          etaNext: "6 min",
+          telemetryHealth: "High Frequency",
+          fuel: "64%",
+          lastPing: "2s ago"
+        }
+      ]);
+
+      const [dialog, setDialog] = useState(null); // { title, msg, onConfirm, showCancel }
+      const [toast, setToast] = useState(null);
+
+      const triggerToast = (msg) => {
+        setToast(msg);
+        setTimeout(() => setToast(null), 3200);
+      };
+
+      const closeDialog = () => setDialog(null);
+
+      return (
+        <TransitContext.Provider value={{
+          role, setRole,
+          user, setUser,
+          adminUser,
+          adminFleet, setAdminFleet,
+          selectedStop, setSelectedStop,
+          alertPreference, setAlertPreference,
+          activeAlerts, setActiveAlerts,
+          dialog, setDialog, closeDialog,
+          toast, triggerToast
+        }}>
+          {children}
+        </TransitContext.Provider>
+      );
+    };
+
+    const useTransit = () => useContext(TransitContext);
+
+    // --- REUSABLE UI DIALOG / TOAST ---
+    const GlobalModals = () => {
+      const { dialog, closeDialog, toast, setToast } = useTransit();
+
+      return (
+        <Fragment>
+          {toast && (
+            <div className="fixed top-4 inset-x-4 max-w-sm mx-auto z-[9999] bg-[#09090b] text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between border border-purple-500/40 animate-bounce">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-purple-400 text-[20px]">info</span>
+                <span className="text-[13px] font-medium">{toast}</span>
+              </div>
+              <button onClick={() => setToast(null)} className="text-purple-300 ml-2 hover:text-white">✕</button>
+            </div>
+          )}
+
+          {dialog && (
+            <div className="fixed inset-0 z-[9999] bg-[#09090b]/75 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-purple-100 flex flex-col gap-3">
+                <div className="flex items-center gap-2 text-primary font-bold text-[17px]">
+                  <span className="material-symbols-outlined text-[24px]">contact_support</span>
+                  <h3>{dialog.title || "BusQ Confirmation"}</h3>
+                </div>
+                <p className="text-[14px] text-on-surface-variant leading-relaxed">{dialog.msg}</p>
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  {dialog.showCancel && (
+                    <button
+                      onClick={closeDialog}
+                      className="px-4 py-2 rounded-xl text-[13px] font-semibold text-on-surface-variant hover:bg-purple-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (dialog.onConfirm) dialog.onConfirm();
+                      closeDialog();
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-primary text-white text-[13px] font-bold shadow-md hover:bg-purple-800 transition-colors"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </Fragment>
+      );
+    };
+
+    // --- HEADER COMPONENT ---
+    const AppHeader = ({ title = "BusQ", subtitle, onBack }) => {
+      const navigate = useNavigate();
+      const { role } = useTransit();
+
+      return (
+        <header className="fixed top-0 w-full z-50 bg-[#fcf8fb]/95 backdrop-blur-xl border-b border-purple-100 shadow-[0_1px_8px_rgba(109,40,217,0.06)]">
+          <div className="h-16 px-4 max-w-xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {onBack ? (
+                <button 
+                  onClick={onBack} 
+                  aria-label="Go Back"
+                  className="min-h-[44px] min-w-[44px] -ml-2 flex items-center justify-center text-on-surface active:scale-90 transition-transform"
+                >
+                  <span className="material-symbols-outlined text-[24px]">arrow_back</span>
+                </button>
+              ) : null}
+              <div 
+                className="flex items-center gap-2 cursor-pointer"
+                onClick={() => navigate(role === 'admin' ? '/admin-profile' : '/home')}
+              >
+                <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center shadow-sm">
+                  <span className="material-symbols-outlined text-[20px]">directions_bus</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[17px] font-bold text-primary tracking-tight leading-tight">{title}</span>
+                  {subtitle && <span className="text-[11px] text-on-surface-variant font-medium leading-none">{subtitle}</span>}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => navigate('/emergency')}
+                aria-label="Campus Emergency SOS"
+                className="h-9 px-3 rounded-full bg-error-container text-error flex items-center justify-center gap-1 active:scale-95 transition-transform"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-error"></span>
+                </span>
+                <span className="material-symbols-outlined text-[18px]">emergency</span>
+                <span className="text-[11px] uppercase tracking-wider font-bold">SOS</span>
+              </button>
+
+              <button 
+                onClick={() => navigate(role === 'admin' ? '/admin-profile' : '/profile')}
+                className="w-8 h-8 rounded-full overflow-hidden border-2 border-purple-300 active:scale-95 transition-transform"
+              >
+                <img 
+                  alt="Avatar" 
+                  className="w-full h-full object-cover"
+                  src={role === 'admin' 
+                    ? "https://lh3.googleusercontent.com/aida-public/AB6AXuA0B-R_M6PtQPoSYENsxY2XzssP33VZzzORY3WUTfGA8h8NK0qekdQB_nuscnkXy1SThsY4UgqznrxOBTy9QHk1f_kJsUtgzSWg0uGj-dI-nn9nyHB2Bj1SdGOCKyQOpxMVstvI_6laYuppPw7PbFtkketIU6xUw4uMCpUxuHnT6hKGUHV3o2haSLYGDX2KopmaGgQ6PEJSbALdgRkgieGrak62EPPFYn5wy1gWbYb2cz6sXYhAk1JL"
+                    : "https://lh3.googleusercontent.com/aida-public/AB6AXuDhWsvqcRvGrakUc7HixtsbuTd4lQJhbSg5wqi8hgSXhuQYufi5TIY3SOJeOctbszTrw-7s0EKIVnFz0l9rgVdWyYBGhK1LsWC0J7QUEncPWZi36KOID13rLUo8luAjtnwTDXD0Eu8gRnK7A21oIH0bvfoG1j1WbH_6YQ3NKDCul33MLh1lrnmJh2_Teo1U6nj_8DUGic4qLr87A2r7iuvWm8rlh1jIxs0p8gbkmo1B8cVETjTqv556"
+                  }
+                />
+              </button>
+            </div>
+          </div>
+        </header>
+      );
+    };
+
+    // --- BOTTOM NAVIGATION COMPONENT ---
+    const BottomNavigation = ({ current = "home" }) => {
+      const navigate = useNavigate();
+      const { role, activeAlerts } = useTransit();
+      const unreadCount = activeAlerts.filter(a => a.isUnread).length;
+
+      if (role === 'admin') {
+        const adminTabs = [
+          { id: 'fleet-hub', path: '/home', label: 'Fleet Hub', icon: 'local_shipping' },
+          { id: 'routes', path: '/route-details', label: 'Routes', icon: 'alt_route' },
+          { id: 'live-ops', path: '/track-bus', label: 'Live Ops', icon: 'radar' },
+          { id: 'admin-profile', path: '/admin-profile', label: 'Supervisor', icon: 'manage_accounts' },
+        ];
+        return (
+          <nav className="fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-1px_12px_rgba(0,0,0,0.05)] border-t border-purple-100/60">
+            <div className="h-16 max-w-xl mx-auto px-4 flex items-center justify-around">
+              {adminTabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => navigate(tab.path)}
+                  className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] gap-1 transition-colors ${current === tab.id ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-primary'}`}
+                >
+                  <span className="material-symbols-outlined text-[22px]">{tab.icon}</span>
+                  <span className="text-[11px] font-mono tracking-tight">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
+        );
+      }
+
+      const studentTabs = [
+        { id: 'home', path: '/home', label: 'Home', icon: 'home' },
+        { id: 'track-bus', path: '/track-bus', label: 'Track Bus', icon: 'near_me' },
+        { id: 'notifications', path: '/notifications', label: 'Alerts', icon: 'notifications', badge: unreadCount > 0 },
+        { id: 'profile', path: '/profile', label: 'Profile', icon: 'person' },
+      ];
+
+      return (
+        <nav className="fixed bottom-0 w-full z-50 pb-safe bg-surface-container-lowest/95 backdrop-blur-xl shadow-[0_-2px_12px_rgba(109,40,217,0.06)] border-t border-purple-100/60">
+          <div className="h-16 max-w-xl mx-auto px-4 grid grid-cols-4 items-center">
+            {studentTabs.map(tab => {
+              const isActive = current === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => navigate(tab.path)}
+                  className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 transition-all ${isActive ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-primary'}`}
+                >
+                  <div className="relative flex items-center justify-center">
+                    <span className={`material-symbols-outlined text-[24px] ${isActive ? 'scale-110 font-bold' : ''}`}>{tab.icon}</span>
+                    {tab.badge && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-secondary ring-2 ring-surface-container-lowest animate-pulse"></span>
+                    )}
+                  </div>
+                  <span className="text-[11px] mt-0.5">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      );
+    };
+
+    // --- SCREEN 1: LOGIN PAGE ---
+    const LoginPage = () => {
+      const navigate = useNavigate();
+      const { setRole, triggerToast, setDialog } = useTransit();
+      const [localRole, setLocalRole] = useState("student");
+      const [showPassword, setShowPassword] = useState(false);
+      const [rememberRoute, setRememberRoute] = useState(true);
+      const [userId, setUserId] = useState("CS-2024-8841");
+
+      const handleRoleSwitch = (newRole) => {
+        setLocalRole(newRole);
+        setUserId(newRole === "student" ? "CS-2024-8841" : "ME-2024-5120");
+      };
+
+      const handleSignIn = () => {
+        setRole(localRole);
+        triggerToast(`Signed in successfully as ${localRole === 'student' ? 'Student' : 'Supervisor'}!`);
+        if (localRole === "student") {
+          navigate("/home");
+        } else {
+          navigate("/admin-profile");
+        }
+      };
+
+      return (
+        <div className="flex flex-col min-h-screen bg-[#fcf8fb] pt-safe pb-safe max-w-xl mx-auto w-full px-4 py-6 select-none">
+          {/* Brand header */}
+          <div className="flex flex-col items-center text-center mt-2 space-y-2">
+            <div className="relative flex items-center justify-center w-16 h-16 rounded-xl bg-purple-50 shadow-sm border border-purple-100">
+              <span className="material-symbols-outlined text-[36px] text-primary">directions_bus</span>
+              <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-violet-700"></span>
+              </span>
+            </div>
+            <div className="flex flex-col space-y-0.5">
+              <h1 className="text-[32px] font-extrabold text-[#0f0f11] tracking-tight">BusQ</h1>
+              <p className="text-[14px] text-purple-900/60 font-medium">Your Campus Transit Companion</p>
+            </div>
+          </div>
+
+          {/* Network Banner */}
+          <div className="mt-5 relative w-full rounded-xl overflow-hidden bg-purple-50/70 border border-purple-100 shadow-sm p-4 flex items-center space-x-3.5">
+            <div className="w-16 h-16 rounded-lg bg-purple-200/50 flex items-center justify-center shrink-0 border border-purple-200/50">
+              <span className="material-symbols-outlined text-primary text-[32px]">hub</span>
+            </div>
+            <div className="flex flex-col min-w-0 pr-1">
+              <div className="flex items-center space-x-1.5 text-violet-700">
+                <span className="material-symbols-outlined text-[16px]">directions_bus</span>
+                <span className="text-[11px] uppercase tracking-wider font-semibold">Live Campus Network</span>
+              </div>
+              <p className="text-[16px] font-semibold text-[#0f0f11] leading-snug truncate">North &amp; South Shuttles Active</p>
+              <p className="text-[13px] text-purple-900/70 truncate">Next departure from Central Quad in 4 mins</p>
+            </div>
+          </div>
+
+          {/* Role Switcher */}
+          <div className="mt-5 w-full bg-purple-100/70 p-1 rounded-xl flex items-center">
+            <button 
+              type="button"
+              onClick={() => handleRoleSwitch("student")}
+              className={`flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-lg font-semibold text-[14px] transition-all ${localRole === 'student' ? 'bg-primary text-white shadow-sm' : 'text-purple-900/60 hover:text-purple-950'}`}
+            >
+              <span className="material-symbols-outlined text-[18px]">school</span>
+              <span>Student</span>
+            </button>
+            <button 
+              type="button"
+              onClick={() => handleRoleSwitch("admin")}
+              className={`flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-lg font-semibold text-[14px] transition-all ${localRole === 'admin' ? 'bg-primary text-white shadow-sm' : 'text-purple-900/60 hover:text-purple-950'}`}
+            >
+              <span className="material-symbols-outlined text-[18px]">badge</span>
+              <span>Admin</span>
+            </button>
+          </div>
+
+          {/* Sign In Form */}
+          <form className="mt-5 flex flex-col space-y-4" onSubmit={(e) => { e.preventDefault(); handleSignIn(); }}>
+            <div className="flex flex-col space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[12px] font-semibold text-[#18181b]">
+                  {localRole === 'student' ? 'Student Roll / ID No.' : 'Staff / Supervisor Badge ID'}
+                </label>
+                <span className="text-[11px] text-violet-700 font-semibold">
+                  {localRole === 'student' ? 'Student Account' : 'Administrative Clearance'}
+                </span>
+              </div>
+              <div className="relative flex items-center">
+                <span className="material-symbols-outlined absolute left-3.5 text-purple-400 pointer-events-none text-[20px]">
+                  {localRole === 'student' ? 'school' : 'badge'}
+                </span>
+                <input 
+                  type="text" 
+                  value={userId}
+                  onChange={(e) => setUserId(e.target.value)}
+                  className="w-full h-12 pl-11 pr-4 rounded-lg bg-white text-[#0f0f11] text-[14px] shadow-sm border border-purple-100 focus:border-violet-600 focus:outline-none"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[12px] font-semibold text-[#18181b]">Campus Password / Passcode</label>
+                <button 
+                  type="button" 
+                  onClick={() => setDialog({ title: "Passcode Recovery", msg: "A temporary reset token has been dispatched to your registered university email.", onConfirm: () => {} })}
+                  className="text-[11px] text-violet-700 font-semibold hover:underline"
+                >
+                  Forgot ID / Pin?
+                </button>
+              </div>
+              <div className="relative flex items-center">
+                <span className="material-symbols-outlined absolute left-3.5 text-purple-400 pointer-events-none text-[20px]">lock</span>
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  defaultValue="••••••••••••"
+                  className="w-full h-12 pl-11 pr-11 rounded-lg bg-white text-[#0f0f11] text-[14px] shadow-sm border border-purple-100 focus:border-violet-600 focus:outline-none"
+                  required
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 text-purple-400 hover:text-purple-700"
+                >
+                  <span className="material-symbols-outlined text-[20px]">
+                    {showPassword ? "visibility_off" : "visibility"}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2.5 pt-0.5">
+              <button 
+                type="button"
+                onClick={() => setRememberRoute(!rememberRoute)}
+                className={`w-5 h-5 rounded flex items-center justify-center transition-colors shadow-sm ${rememberRoute ? 'bg-primary text-white' : 'bg-purple-100 border border-purple-200'}`}
+              >
+                {rememberRoute && <span className="material-symbols-outlined text-[16px] font-bold">check</span>}
+              </button>
+              <span className="text-[13px] text-[#4a4455] cursor-pointer" onClick={() => setRememberRoute(!rememberRoute)}>
+                Remember my assigned bus route &amp; stop
+              </span>
+            </div>
+
+            <div className="pt-2">
+              <button 
+                type="submit"
+                className="w-full h-12 rounded-lg bg-[#0f0f11] hover:bg-[#18181b] text-white text-[14px] font-semibold shadow-sm flex items-center justify-center space-x-2 active:scale-[0.99] transition-all"
+              >
+                <span>Sign In as {localRole === 'student' ? 'Student' : 'Supervisor'}</span>
+                <span className="material-symbols-outlined text-[18px] text-purple-300">arrow_forward</span>
+              </button>
+            </div>
+          </form>
+
+          {/* Quick Switch Portals */}
+          <div className="mt-6 w-full bg-purple-50/60 rounded-xl p-3.5 border border-purple-200/70 shadow-sm flex flex-col space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] uppercase tracking-wider text-violet-700 font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-[16px]">bolt</span> Quick Demo Switch
+              </span>
+              <span className="text-[11px] text-purple-900/60 font-medium">1-Click Launch</span>
+            </div>
+            <div className="flex flex-col space-y-2">
+              <button 
+                type="button"
+                onClick={() => {
+                  setRole("student");
+                  navigate('/home');
+                }}
+                className="w-full p-2.5 rounded-lg bg-white hover:bg-purple-50 border border-purple-200 flex items-center justify-between text-left transition-all shadow-xs"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-purple-100 text-violet-800 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[18px]">school</span>
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[12px] font-bold text-on-surface truncate">Student: Ananya Sharma</span>
+                    <span className="text-[11px] text-purple-900/70 truncate">CS-2024-8841 • Semester 4 Pass</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-primary text-[12px] font-bold shrink-0">
+                  <span>Enter</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </div>
+              </button>
+
+              <button 
+                type="button"
+                onClick={() => {
+                  setRole("admin");
+                  navigate('/admin-profile');
+                }}
+                className="w-full p-2.5 rounded-lg bg-white hover:bg-purple-50 border border-purple-200 flex items-center justify-between text-left transition-all shadow-xs"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[12px] font-bold text-on-surface truncate">Admin: Rahul Verma</span>
+                    <span className="text-[11px] text-purple-900/70 truncate">ME-2024-5120 • Master Ops</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-primary text-[12px] font-bold shrink-0">
+                  <span>Enter</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- SCREEN 2: STUDENT HOME DASHBOARD ---
+    const HomePage = () => {
+      const navigate = useNavigate();
+      const { user, selectedStop, setDialog, triggerToast } = useTransit();
+
+      return (
+        <div className="flex-1 flex flex-col relative w-full pt-16 pb-24 bg-surface max-w-xl mx-auto min-h-screen">
+          <AppHeader title="BusQ" subtitle="Home" />
+
+          <div className="flex flex-col w-full px-4 space-y-4 pb-6 mt-3">
+            {/* Greeting: Cleaned to "Good Morning!" */}
+            <section className="flex flex-col space-y-2">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-1">
+                    <h1 className="text-[24px] font-bold text-on-surface">Good Morning!</h1>
+                    <span className="text-xl">👋</span>
+                  </div>
+                  <p className="text-[14px] text-on-surface-variant">Semester 4 • Dept. of Computer Science</p>
+                </div>
+                <button 
+                  onClick={() => navigate('/profile')}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-primary shadow-xs active:scale-95 transition-transform"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-secondary">verified_user</span>
+                  <span className="text-[11px] tracking-wide uppercase font-bold">Pass Active</span>
+                </button>
+              </div>
+
+              {/* Commute Status Ticker */}
+              <div className="bg-surface-container-low rounded-xl px-3 py-2 flex items-center justify-between text-on-surface-variant border border-purple-100">
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[18px] text-secondary">sunny</span>
+                  <span className="text-[13px] font-medium text-on-surface">24°C Sunny</span>
+                  <span className="text-outline-variant">•</span>
+                  <span className="text-[13px] truncate">Mild Ring Road traffic</span>
+                </div>
+                <span className="text-[11px] text-secondary font-bold flex items-center gap-0.5">
+                  Optimal <span className="material-symbols-outlined text-[14px]">trending_up</span>
+                </span>
+              </div>
+            </section>
+
+            {/* Featured Card: Assigned Bus */}
+            <section className="relative bg-surface-container-lowest rounded-xl shadow-md overflow-hidden border border-purple-100">
+              <div className="h-1.5 w-full bg-gradient-to-r from-purple-200 via-secondary to-primary"></div>
+              <div className="p-4 flex flex-col space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-[#18181b] text-white flex items-center justify-center text-[18px] font-bold shadow-sm">
+                      14
+                    </div>
+                    <div>
+                      <h2 className="text-[18px] font-bold text-on-surface">{user.bus}</h2>
+                      <span className="text-[11px] text-on-surface-variant">Campus Express • North Route</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 text-primary border border-purple-200">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
+                    </span>
+                    <span className="text-[11px] font-bold">En Route</span>
+                  </div>
+                </div>
+
+                {/* Route Path Overview */}
+                <div 
+                  onClick={() => navigate('/route-details')}
+                  className="bg-surface-container-low rounded-xl p-3 flex flex-col space-y-1 border border-purple-100 cursor-pointer hover:bg-purple-50/50 transition-colors"
+                >
+                  <div className="flex items-center justify-between text-[11px] text-on-surface-variant">
+                    <span>Route 7B Schedule</span>
+                    <span className="text-secondary font-semibold">Plate: {user.plate}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-secondary text-[20px]">trip_origin</span>
+                    <div className="flex-1 flex flex-col">
+                      <div className="text-[14px] font-semibold text-on-surface">Green Glen Heights</div>
+                      <div className="text-[12px] text-on-surface-variant">➔ Central Campus Terminal</div>
+                    </div>
+                    <span className="material-symbols-outlined text-primary text-[20px]">flag</span>
+                  </div>
+                </div>
+
+                {/* ETA Countdown Tile */}
+                <div 
+                  onClick={() => navigate('/eta-countdown')}
+                  className="flex items-stretch justify-between gap-3 bg-[#09090b] text-white rounded-xl p-3.5 relative overflow-hidden shadow-sm cursor-pointer hover:bg-zinc-900 transition-colors"
+                >
+                  <div className="flex flex-col justify-center z-10">
+                    <span className="text-[11px] text-purple-300 uppercase tracking-wider font-semibold">Your Pickup Stop</span>
+                    <span className="text-[18px] font-bold text-white truncate">{selectedStop.name}</span>
+                    <span className="text-[12px] text-zinc-400">Stop #{selectedStop.num} • {selectedStop.walk}</span>
+                  </div>
+                  <div className="flex flex-col items-end justify-center z-10 shrink-0">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-[28px] font-extrabold text-purple-400 tracking-tight">7</span>
+                      <span className="text-[12px] text-purple-300 font-bold">MIN</span>
+                    </div>
+                    <span className="text-[11px] text-zinc-400">ETA {selectedStop.eta}</span>
+                  </div>
+                </div>
+
+                {/* Occupancy Indicator */}
+                <div className="flex flex-col space-y-1">
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span className="text-on-surface-variant flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[18px] text-secondary">airline_seat_recline_normal</span>
+                      38 / 44 Seats Occupied
+                    </span>
+                    <span className="text-[11px] text-secondary font-bold">Low Congestion</span>
+                  </div>
+                  <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden flex">
+                    <div className="bg-secondary h-full rounded-full w-[86%]"></div>
+                  </div>
+                </div>
+
+                {/* Action button to Live Tracking */}
+                <button 
+                  onClick={() => navigate('/track-bus')}
+                  className="min-h-[48px] w-full rounded-xl bg-primary hover:bg-purple-800 text-white flex items-center justify-center gap-2 text-[14px] font-semibold shadow-md active:scale-[0.98] transition-all"
+                >
+                  <span className="material-symbols-outlined text-[20px]">explore</span>
+                  <span>Live Track Vehicle</span>
+                  <span className="material-symbols-outlined text-[18px] text-purple-300">arrow_forward</span>
+                </button>
+              </div>
+            </section>
+
+            {/* Quick Commute Tools Grid */}
+            <section className="flex flex-col space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[18px] font-bold text-on-surface">Quick Commute Tools</h3>
+                <span className="text-[11px] text-secondary font-semibold">Assigned Trip</span>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                <button 
+                  onClick={() => navigate('/stop-selection')}
+                  className="flex flex-col items-center text-center p-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container border border-purple-100 active:scale-95 transition-all"
+                >
+                  <div className="w-10 h-10 rounded-full bg-purple-100 text-primary flex items-center justify-center shadow-xs mb-1">
+                    <span className="material-symbols-outlined text-[20px]">edit_location_alt</span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-on-surface leading-tight">Change Stop</span>
+                </button>
+
+                <button 
+                  onClick={() => navigate('/route-details')}
+                  className="flex flex-col items-center text-center p-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container border border-purple-100 active:scale-95 transition-all"
+                >
+                  <div className="w-10 h-10 rounded-full bg-purple-100 text-primary flex items-center justify-center shadow-xs mb-1">
+                    <span className="material-symbols-outlined text-[20px]">route</span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-on-surface leading-tight">Route Stops</span>
+                </button>
+
+                <a 
+                  href="tel:+919876543210"
+                  className="flex flex-col items-center text-center p-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container border border-purple-100 active:scale-95 transition-all"
+                >
+                  <div className="w-10 h-10 rounded-full bg-purple-100 text-primary flex items-center justify-center shadow-xs mb-1">
+                    <span className="material-symbols-outlined text-[20px]">call</span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-on-surface leading-tight">Call Driver</span>
+                </a>
+
+                <button 
+                  onClick={() => {
+                    setDialog({
+                      title: "Report Bus Delay",
+                      msg: "Confirm reporting a delay on Route 7B to Dispatch? Our traffic controllers will verify via live GPS.",
+                      showCancel: true,
+                      onConfirm: () => triggerToast("Delay logged! Transport supervisor alerted.")
+                    });
+                  }}
+                  className="flex flex-col items-center text-center p-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container border border-purple-100 active:scale-95 transition-all"
+                >
+                  <div className="w-10 h-10 rounded-full bg-error-container text-error flex items-center justify-center shadow-xs mb-1">
+                    <span className="material-symbols-outlined text-[20px]">schedule_send</span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-on-surface leading-tight">Report Delay</span>
+                </button>
+              </div>
+            </section>
+
+            {/* Driver Profile preview */}
+            <section className="bg-surface-container-low rounded-xl p-3 shadow-xs border border-purple-100 flex items-center gap-3">
+              <img 
+                alt="Rajesh Kumar"
+                className="w-11 h-11 rounded-full object-cover shrink-0 shadow-xs"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuD67pqddAI02D9Pr1vDdW4FnzQFGlYc3Us-W9NaQmp-Y0RsjLe8catHJdVGPNevqngGamwKFO3Ccp1CiccwqCfqOYw9pG4ecYGlt_14WVwc103n8KIebboNP9EiIhqUDqtxbEOG5U9Ln5lNfhrt6EpFnAgCTGuczLlfVAt32oRhuuZjCP2LTzZbaC4kkIepTY5QKYDF9ufvcXjZ-0R871CK6UtD75Tn8Hl9j7t6XNp1HUVbJVdj_YLY"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1">
+                  <h4 className="text-[14px] font-bold text-on-surface truncate">Rajesh Kumar</h4>
+                  <span className="material-symbols-outlined text-secondary text-[16px]">verified</span>
+                </div>
+                <div className="flex items-center gap-2 text-[12px] text-on-surface-variant">
+                  <span className="flex items-center text-amber-600 font-semibold">★ 4.9</span>
+                  <span>•</span>
+                  <span>6 yrs verified service</span>
+                </div>
+              </div>
+              <span className="text-[11px] text-primary bg-purple-100 px-2.5 py-0.5 rounded-full font-bold">On Duty</span>
+            </section>
+          </div>
+
+          <BottomNavigation current="home" />
+        </div>
+      );
+    };
+
+    // --- SCREEN 3: LIVE BUS TRACKING MAP ---
+    const TrackBusPage = () => {
+      const navigate = useNavigate();
+      const { role, selectedStop, adminFleet, triggerToast } = useTransit();
+      
+      // Selected bus focus in admin mode: "all" | "bus-14" | "bus-08" | "bus-21"
+      const [adminSelectedBusId, setAdminSelectedBusId] = useState("all");
+      const [alarmActive, setAlarmActive] = useState(false);
+      const [layerMode, setLayerMode] = useState("transit"); // "transit" | "satellite"
+      const [secondsRemaining, setSecondsRemaining] = useState(405);
+
+      // Refs to the exact SVG route path elements
+      const path14Ref = React.useRef(null);
+      const path08Ref = React.useRef(null);
+      const path21Ref = React.useRef(null);
+
+      // Exact sampled (x, y) coordinates on the route paths
+      const [bus14Pos, setBus14Pos] = useState({ x: 50, y: 60 });
+      const [bus08Pos, setBus08Pos] = useState({ x: 60, y: 380 });
+      const [bus21Pos, setBus21Pos] = useState({ x: 360, y: 30 });
+
+      // Continuous, exact path progression along route lines using getPointAtLength
+      useEffect(() => {
+        let animFrameId;
+        const startTime = performance.now();
+
+        const updatePositions = (now) => {
+          const elapsed = (now - startTime) / 1000; // in seconds
+
+          // Progress cycles: 0.0 -> 1.0 (converging at VIT-AP terminal at end of line)
+          // Staggered loop speeds for realistic transit motion
+          const progress14 = (elapsed * 0.065) % 1; 
+          const progress08 = (elapsed * 0.055) % 1; 
+          const progress21 = (elapsed * 0.075) % 1; 
+
+          if (path14Ref.current) {
+            try {
+              const len = path14Ref.current.getTotalLength();
+              const pt = path14Ref.current.getPointAtLength(progress14 * len);
+              setBus14Pos({ x: pt.x, y: pt.y });
+            } catch (e) {}
+          }
+
+          if (path08Ref.current) {
+            try {
+              const len = path08Ref.current.getTotalLength();
+              const pt = path08Ref.current.getPointAtLength(progress08 * len);
+              setBus08Pos({ x: pt.x, y: pt.y });
+            } catch (e) {}
+          }
+
+          if (path21Ref.current) {
+            try {
+              const len = path21Ref.current.getTotalLength();
+              const pt = path21Ref.current.getPointAtLength(progress21 * len);
+              setBus21Pos({ x: pt.x, y: pt.y });
+            } catch (e) {}
+          }
+
+          animFrameId = requestAnimationFrame(updatePositions);
+        };
+
+        animFrameId = requestAnimationFrame(updatePositions);
+        return () => cancelAnimationFrame(animFrameId);
+      }, []);
+
+      useEffect(() => {
+        const timer = setInterval(() => {
+          setSecondsRemaining(prev => (prev > 30 ? prev - 1 : prev));
+        }, 1000);
+        return () => clearInterval(timer);
+      }, []);
+
+      const formatTime = (secs) => {
+        const m = Math.floor(secs / 60);
+        const s = secs % 60;
+        return `${m}m ${s < 10 ? '0' : ''}${s}s`;
+      };
+
+      const handleShare = () => {
+        if (navigator.share) {
+          navigator.share({
+            title: "BusQ Live Tracking",
+            text: `Tracking campus bus operations on BusQ.`,
+            url: window.location.href
+          }).catch(() => {});
+        } else {
+          document.execCommand('copy');
+          triggerToast("Live map telemetry link copied to clipboard!");
+        }
+      };
+
+      // Get current active bus object in admin mode
+      const focusedBus = adminFleet.find(b => b.id === adminSelectedBusId) || adminFleet[0];
+
+      return (
+        <div className="flex-1 flex flex-col relative w-full pt-16 pb-24 bg-surface max-w-xl mx-auto min-h-screen">
+          <AppHeader 
+            title={role === 'admin' ? "Fleet Live Ops" : "BusQ"} 
+            subtitle={role === 'admin' ? "Multi-Bus Radar" : "Live Track Bus"} 
+          />
+
+          <div className="flex flex-col w-full relative select-none">
+            {/* Top Fleet Switcher (ADMIN ONLY) */}
+            {role === 'admin' && (
+              <div className="bg-[#18181b] px-3 py-2 border-b border-purple-500/20 text-white z-30 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between text-[11px] font-mono">
+                  <span className="flex items-center gap-1 text-purple-300 font-bold">
+                    <span className="material-symbols-outlined text-[15px] animate-pulse">radar</span>
+                    FLEET RADAR ACTIVE
+                  </span>
+                  <span className="text-zinc-400">3 Vehicles Transmitting</span>
+                </div>
+                
+                {/* Multi-Bus Focus Selector Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                  <button
+                    onClick={() => {
+                      setAdminSelectedBusId("all");
+                      triggerToast("Viewing whole campus fleet radar.");
+                    }}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-bold font-mono whitespace-nowrap transition-all flex items-center gap-1 ${
+                      adminSelectedBusId === 'all' 
+                        ? 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-300' 
+                        : 'bg-zinc-800 text-zinc-300 hover:text-white'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[14px]">grid_view</span>
+                    <span>All Fleet (3)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setAdminSelectedBusId("bus-14");
+                      triggerToast("Focused on Bus #14 (North Express).");
+                    }}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-bold font-mono whitespace-nowrap transition-all flex items-center gap-1 ${
+                      adminSelectedBusId === 'bus-14' 
+                        ? 'bg-violet-600 text-white shadow-sm ring-1 ring-violet-300' 
+                        : 'bg-zinc-800 text-zinc-300 hover:text-white'
+                    }`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-violet-400"></span>
+                    <span>Bus #14 (38 km/h)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setAdminSelectedBusId("bus-08");
+                      triggerToast("Focused on Bus #08 (South Loop).");
+                    }}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-bold font-mono whitespace-nowrap transition-all flex items-center gap-1 ${
+                      adminSelectedBusId === 'bus-08' 
+                        ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-300' 
+                        : 'bg-zinc-800 text-zinc-300 hover:text-white'
+                    }`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span>Bus #08 (0 km/h)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setAdminSelectedBusId("bus-21");
+                      triggerToast("Focused on Bus #21 (Metro Connector).");
+                    }}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-bold font-mono whitespace-nowrap transition-all flex items-center gap-1 ${
+                      adminSelectedBusId === 'bus-21' 
+                        ? 'bg-amber-600 text-white shadow-sm ring-1 ring-amber-300' 
+                        : 'bg-zinc-800 text-zinc-300 hover:text-white'
+                    }`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                    <span>Bus #21 (52 km/h)</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Interactive SVG Map Canvas */}
+            <div className={`relative w-full h-[470px] overflow-hidden rounded-b-3xl shadow-sm transition-colors duration-500 ${layerMode === 'satellite' ? 'bg-[#121215]' : 'bg-[#f4effa]'}`}>
+              <svg className="absolute inset-0 w-full h-full object-cover" viewBox="0 0 420 540" fill="none">
+                {/* River / Waterway */}
+                <path d="M-20 40C40 70 80 160 60 270C40 370 90 460 140 560" stroke={layerMode === 'satellite' ? '#1e293b' : '#e0e7ff'} strokeWidth="36" strokeLinecap="round" />
+                <path d="M-20 40C40 70 80 160 60 270C40 370 90 460 140 560" stroke={layerMode === 'satellite' ? '#334155' : '#ede9fe'} strokeWidth="22" strokeLinecap="round" />
+                
+                {/* Campus Quad Lawn & Sports Grounds */}
+                <path d="M240 40C290 30 360 50 390 100C410 140 370 180 320 170C270 160 230 110 240 40Z" fill={layerMode === 'satellite' ? '#1e1b4b' : '#ede9fe'} fillOpacity="0.7" />
+                <rect x="70" y="340" width="130" height="90" rx="20" fill={layerMode === 'satellite' ? '#064e3b' : '#dcfce7'} fillOpacity="0.4" />
+                <text x="135" y="385" fill={layerMode === 'satellite' ? '#6ee7b7' : '#047857'} fontSize="10" fontWeight="bold" textAnchor="middle">
+                  {"South Hostel Zone"}
+                </text>
+                
+                {/* Arterial Roads */}
+                <path d="M-10 160H430" stroke={layerMode === 'satellite' ? '#27272a' : '#ffffff'} strokeWidth="12" strokeLinecap="round" />
+                <path d="M-10 320H430" stroke={layerMode === 'satellite' ? '#27272a' : '#ffffff'} strokeWidth="10" strokeLinecap="round" />
+                <path d="M160 -10V550" stroke={layerMode === 'satellite' ? '#27272a' : '#ffffff'} strokeWidth="10" strokeLinecap="round" />
+                <path d="M310 -10V550" stroke={layerMode === 'satellite' ? '#27272a' : '#ffffff'} strokeWidth="10" strokeLinecap="round" />
+                <path d="M-10 430 Q 180 470 430 410" stroke={layerMode === 'satellite' ? '#27272a' : '#ffffff'} strokeWidth="12" strokeLinecap="round" />
+
+                {/* ROUTE 7B (North Express) - Violet - Ref bound for exact tracking */}
+                <path d="M 50 60 L 160 160 L 160 260 L 290 320 L 290 460" stroke="#c4b5fd" strokeWidth="10" strokeOpacity="0.6" strokeLinecap="round" strokeLinejoin="round" />
+                <path 
+                  ref={path14Ref}
+                  d="M 50 60 L 160 160 L 160 260 L 290 320 L 290 460" 
+                  stroke="#7c3aed" 
+                  strokeWidth="4" 
+                  strokeDasharray="8 4" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                />
+
+                {/* ROUTE 3A (South Perimeter Shuttle) - Emerald - Ref bound for exact tracking */}
+                {role === 'admin' && (
+                  <g opacity={adminSelectedBusId === 'all' || adminSelectedBusId === 'bus-08' ? '1' : '0.25'}>
+                    <path d="M 60 380 Q 150 420 230 445 L 290 460" stroke="#a7f3d0" strokeWidth="8" strokeOpacity="0.8" strokeLinecap="round" strokeLinejoin="round" />
+                    <path 
+                      ref={path08Ref}
+                      d="M 60 380 Q 150 420 230 445 L 290 460" 
+                      stroke="#059669" 
+                      strokeWidth="4" 
+                      strokeDasharray="6 3" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                    />
+                    <circle cx="60" cy="380" r="6" fill="#059669" stroke="#fff" strokeWidth="1.5" />
+                  </g>
+                )}
+
+                {/* ROUTE 12 (Metro Connector Bypass) - Amber - Ref bound for exact tracking */}
+                {role === 'admin' && (
+                  <g opacity={adminSelectedBusId === 'all' || adminSelectedBusId === 'bus-21' ? '1' : '0.25'}>
+                    <path d="M 360 30 L 370 180 L 360 320 L 330 410 L 290 460" stroke="#fde68a" strokeWidth="8" strokeOpacity="0.8" strokeLinecap="round" strokeLinejoin="round" />
+                    <path 
+                      ref={path21Ref}
+                      d="M 360 30 L 370 180 L 360 320 L 330 410 L 290 460" 
+                      stroke="#d97706" 
+                      strokeWidth="4" 
+                      strokeDasharray="6 3" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                    />
+                    <circle cx="360" cy="30" r="6" fill="#d97706" stroke="#fff" strokeWidth="1.5" />
+                  </g>
+                )}
+
+                {/* Base Route 7B Waypoint Stops */}
+                <g transform="translate(50, 60)">
+                  <circle cx="0" cy="0" r="10" fill="#09090b" stroke="#ffffff" strokeWidth="2" />
+                  <text x="0" y="3" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle">1</text>
+                  <text x="14" y="3" fill={layerMode === 'satellite' ? '#ffffff' : '#09090b'} fontSize="10" fontWeight="bold">
+                    {"Depot"}
+                  </text>
+                </g>
+                <g transform="translate(160, 160)">
+                  <circle cx="0" cy="0" r="10" fill="#09090b" stroke="#ffffff" strokeWidth="2" />
+                  <text x="0" y="3" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle">2</text>
+                  <text x="14" y="3" fill={layerMode === 'satellite' ? '#ffffff' : '#09090b'} fontSize="10" fontWeight="bold">
+                    {role === 'admin' ? "High Court" : "Oakridge"}
+                  </text>
+                </g>
+                <g transform="translate(160, 260)">
+                  <circle cx="0" cy="0" r="11" fill="#7c3aed" stroke="#ffffff" strokeWidth="2" />
+                  <text x="0" y="3" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle">3</text>
+                  <text x={role === 'admin' ? "-78" : "-64"} y="3" fill={layerMode === 'satellite' ? '#ffffff' : '#09090b'} fontSize="10" fontWeight="bold">
+                    {role === 'admin' ? "AP Secretariat" : "Meadow Park"}
+                  </text>
+                </g>
+                <g transform="translate(290, 320)">
+                  <circle cx="0" cy="0" r="18" fill="#7c3aed" fillOpacity="0.35" className="animate-ping" />
+                  <circle cx="0" cy="0" r="12" fill="#6d28d9" stroke="#ffffff" strokeWidth="2" />
+                  <text x="0" y="4" fill="#ffffff" fontSize="10" fontWeight="bold" textAnchor="middle">4</text>
+                  <text x="16" y="4" fill="#7c3aed" fontSize="10" fontWeight="bold">
+                    {"Pickup Stop"}
+                  </text>
+                </g>
+
+                {/* COMMON CONVERGENCE POINT: VIT-AP University */}
+                <g transform="translate(290, 460)">
+                  <circle cx="0" cy="0" r="22" fill="#6d28d9" fillOpacity="0.2" className="animate-pulse" />
+                  <rect x="-16" y="-16" width="32" height="32" rx="8" fill="#18181b" stroke="#dac5ff" strokeWidth="2.5" />
+                  <text x="0" y="5" fill="#dac5ff" fontSize="13" fontWeight="bold" textAnchor="middle">★</text>
+                  <text x="0" y="27" fill={layerMode === 'satellite' ? '#ffffff' : '#09090b'} fontSize="11" fontWeight="bold" textAnchor="middle">
+                    {"VIT-AP University"}
+                  </text>
+                  <text x="0" y="38" fill="#7c3aed" fontSize="9" fontWeight="bold" textAnchor="middle">
+                    {"Meeting Hub (All Routes)"}
+                  </text>
+                </g>
+
+                {/* BUS #14 LIVE MARKER (Centered precisely on Route 7B path) */}
+                <g 
+                  transform={`translate(${bus14Pos.x}, ${bus14Pos.y})`}
+                  opacity={(role === 'student' || adminSelectedBusId === 'all' || adminSelectedBusId === 'bus-14') ? 1 : 0.25}
+                  onClick={() => { if (role === 'admin') setAdminSelectedBusId("bus-14"); }}
+                  className="cursor-pointer"
+                >
+                  {/* Subtle pulsing accuracy ring on route line */}
+                  <circle cx="0" cy="0" r="18" fill="#7c3aed" fillOpacity="0.25" className="animate-ping" />
+                  
+                  {/* Central Bus Symbol circle strictly centered at (0, 0) */}
+                  <circle cx="0" cy="0" r="14" fill="#6d28d9" stroke="#ffffff" strokeWidth="2.5" />
+                  
+                  {/* Bus Icon Sketch */}
+                  <rect x="-6" y="-6.5" width="12" height="13" rx="2" fill="#ffffff" />
+                  <rect x="-4.5" y="-4.5" width="9" height="3.5" rx="0.75" fill="#6d28d9" />
+                  <circle cx="-3" cy="3" r="1.2" fill="#6d28d9" />
+                  <circle cx="3" cy="3" r="1.2" fill="#6d28d9" />
+                  <rect x="-1.5" y="0.5" width="3" height="1" fill="#6d28d9" />
+
+                  {/* Identification Label pinned above route marker */}
+                  <g transform="translate(0, -22)">
+                    <rect x="-26" y="-9" width="52" height="16" rx="8" fill="#09090b" stroke="#dac5ff" strokeWidth="0.75" />
+                    <circle cx="-18" cy="-1" r="2.5" fill="#a855f7" />
+                    <text x="4" y="2.5" fill="#ffffff" fontSize="8.5" fontWeight="bold" textAnchor="middle">Bus #14</text>
+                  </g>
+                </g>
+
+                {/* BUS #08 LIVE MARKER (Centered precisely on Route 3A path) - Admin Only */}
+                {role === 'admin' && (
+                  <g 
+                    transform={`translate(${bus08Pos.x}, ${bus08Pos.y})`}
+                    opacity={(adminSelectedBusId === 'all' || adminSelectedBusId === 'bus-08') ? 1 : 0.25}
+                    onClick={() => setAdminSelectedBusId("bus-08")}
+                    className="cursor-pointer"
+                  >
+                    <circle cx="0" cy="0" r="18" fill="#059669" fillOpacity="0.25" className="animate-ping" />
+                    <circle cx="0" cy="0" r="14" fill="#059669" stroke="#ffffff" strokeWidth="2.5" />
+
+                    {/* Bus Icon Sketch */}
+                    <rect x="-6" y="-6.5" width="12" height="13" rx="2" fill="#ffffff" />
+                    <rect x="-4.5" y="-4.5" width="9" height="3.5" rx="0.75" fill="#059669" />
+                    <circle cx="-3" cy="3" r="1.2" fill="#059669" />
+                    <circle cx="3" cy="3" r="1.2" fill="#059669" />
+                    <rect x="-1.5" y="0.5" width="3" height="1" fill="#059669" />
+
+                    <g transform="translate(0, -22)">
+                      <rect x="-26" y="-9" width="52" height="16" rx="8" fill="#064e3b" stroke="#6ee7b7" strokeWidth="0.75" />
+                      <circle cx="-18" cy="-1" r="2.5" fill="#34d399" />
+                      <text x="4" y="2.5" fill="#ffffff" fontSize="8.5" fontWeight="bold" textAnchor="middle">Bus #08</text>
+                    </g>
+                  </g>
+                )}
+
+                {/* BUS #21 LIVE MARKER (Centered precisely on Route 12 path) - Admin Only */}
+                {role === 'admin' && (
+                  <g 
+                    transform={`translate(${bus21Pos.x}, ${bus21Pos.y})`}
+                    opacity={(adminSelectedBusId === 'all' || adminSelectedBusId === 'bus-21') ? 1 : 0.25}
+                    onClick={() => setAdminSelectedBusId("bus-21")}
+                    className="cursor-pointer"
+                  >
+                    <circle cx="0" cy="0" r="18" fill="#d97706" fillOpacity="0.25" className="animate-ping" />
+                    <circle cx="0" cy="0" r="14" fill="#d97706" stroke="#ffffff" strokeWidth="2.5" />
+
+                    {/* Bus Icon Sketch */}
+                    <rect x="-6" y="-6.5" width="12" height="13" rx="2" fill="#ffffff" />
+                    <rect x="-4.5" y="-4.5" width="9" height="3.5" rx="0.75" fill="#d97706" />
+                    <circle cx="-3" cy="3" r="1.2" fill="#d97706" />
+                    <circle cx="3" cy="3" r="1.2" fill="#d97706" />
+                    <rect x="-1.5" y="0.5" width="3" height="1" fill="#d97706" />
+
+                    <g transform="translate(0, -22)">
+                      <rect x="-26" y="-9" width="52" height="16" rx="8" fill="#78350f" stroke="#fde68a" strokeWidth="0.75" />
+                      <circle cx="-18" cy="-1" r="2.5" fill="#fbbf24" />
+                      <text x="4" y="2.5" fill="#ffffff" fontSize="8.5" fontWeight="bold" textAnchor="middle">Bus #21</text>
+                    </g>
+                  </g>
+                )}
+              </svg>
+
+              {/* User Location Marker (Student view or admin overlay) */}
+              <div className="absolute top-[345px] left-[320px] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none z-20">
+                <div className="flex items-center gap-1 bg-white text-on-surface px-1.5 py-0.5 rounded-full shadow-md text-[9px] font-bold mb-1 border border-purple-100">
+                  <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+                  <span>{role === 'admin' ? 'Campus Quad HQ' : 'You • 120m'}</span>
+                </div>
+                <div className="w-6 h-6 rounded-full bg-secondary text-white flex items-center justify-center shadow-md">
+                  <span className="material-symbols-outlined text-[14px]">
+                    {role === 'admin' ? 'corporate_fare' : 'person_pin_circle'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Floating Map Controls & Quick Telemetry Bar */}
+              <div className="absolute top-3 inset-x-3 z-30 flex items-center justify-between gap-2 pointer-events-none">
+                <div className="pointer-events-auto flex-1 bg-white/95 backdrop-blur-md px-3 py-2 rounded-xl shadow-sm flex items-center justify-between border border-purple-100">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-secondary text-[20px]">
+                      {role === 'admin' ? 'radar' : 'speed'}
+                    </span>
+                    <div>
+                      {role === 'admin' ? (
+                        <>
+                          <span className="text-[12px] font-bold text-on-surface block leading-tight">
+                            {adminSelectedBusId === 'all' ? "Active Campus Network" : `${focusedBus.number} • ${focusedBus.speed}`}
+                          </span>
+                          <span className="text-[10px] text-secondary font-semibold">
+                            {adminSelectedBusId === 'all' ? "3 Vehicles in Telemetry Sync" : `${focusedBus.route.split('•')[0]}`}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-[12px] font-bold text-on-surface block leading-tight">Bus #14 • 38 km/h</span>
+                          <span className="text-[10px] text-secondary font-semibold">Light Traffic on Ring Rd</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <span className="bg-[#09090b] text-purple-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono">
+                    {role === 'admin' ? "Live Ops" : "Live GPS"}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 pointer-events-auto">
+                  <button 
+                    onClick={() => {
+                      if (role === 'admin') {
+                        setAdminSelectedBusId("all");
+                        triggerToast("Map re-centered to entire Campus Transit Grid");
+                      } else {
+                        triggerToast("Map re-centered on Bus #14");
+                      }
+                    }}
+                    className="w-10 h-10 rounded-xl bg-white text-on-surface flex items-center justify-center shadow-sm border border-purple-100 active:scale-95"
+                    title="Recenter"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">my_location</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setLayerMode(layerMode === 'transit' ? 'satellite' : 'transit');
+                      triggerToast(layerMode === 'transit' ? "Switched to Satellite layer" : "Switched to Transit layer");
+                    }}
+                    className="w-10 h-10 rounded-xl bg-white text-on-surface flex items-center justify-center shadow-sm border border-purple-100 active:scale-95"
+                    title="Toggle Map Style"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">layers</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Sheet Details: Student view vs Admin Multi-Bus view */}
+            <div className="relative w-full -mt-6 z-40 bg-white rounded-t-3xl shadow-xl px-4 pt-3 pb-6 flex flex-col gap-3 border-t border-purple-100">
+              <div className="w-12 h-1 rounded-full bg-purple-200 mx-auto my-0.5"></div>
+
+              {role === 'admin' ? (
+                /* ADMIN SUPERVISOR BOTTOM PANEL */
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] uppercase tracking-wider text-secondary font-mono font-bold flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[15px]">sensors</span>
+                          Telemetry Selected
+                        </span>
+                        <span className="px-2 py-0.2 rounded-full text-[10px] font-mono bg-purple-100 text-primary font-bold">
+                          {adminSelectedBusId === 'all' ? "Grid View" : focusedBus.number}
+                        </span>
+                      </div>
+                      <h3 className="text-[20px] font-extrabold text-[#09090b] mt-0.5">
+                        {adminSelectedBusId === 'all' ? "Entire Fleet Operational" : `${focusedBus.number} — ${focusedBus.status}`}
+                      </h3>
+                      <p className="text-[12px] text-on-surface-variant">
+                        {adminSelectedBusId === 'all' ? "Click any marker or pill to inspect telemetry" : focusedBus.route}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col items-end">
+                      <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                        Sync 100%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Operational Telemetry Metrics */}
+                  <div className="bg-[#f5f3ff] border border-purple-100 rounded-2xl p-3 grid grid-cols-4 gap-2 text-center text-[12px]">
+                    <div>
+                      <span className="text-[10px] text-on-surface-variant uppercase font-mono block">Units</span>
+                      <strong className="text-primary font-bold font-mono">
+                        {adminSelectedBusId === 'all' ? "3 Active" : focusedBus.number}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-on-surface-variant uppercase font-mono block">Speed</span>
+                      <strong className="text-on-surface font-bold font-mono">
+                        {adminSelectedBusId === 'all' ? "38 avg" : focusedBus.speed}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-on-surface-variant uppercase font-mono block">Load</span>
+                      <strong className="text-secondary font-bold font-mono">
+                        {adminSelectedBusId === 'all' ? "81% Cap" : focusedBus.occupancy}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-on-surface-variant uppercase font-mono block">SoC / Fuel</span>
+                      <strong className="text-emerald-700 font-bold font-mono">
+                        {adminSelectedBusId === 'all' ? "85% avg" : focusedBus.fuel}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Quick Dispatch Controls for Admin */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <button 
+                      onClick={() => {
+                        triggerToast(`Broadcasting live speed advisory to all 3 buses.`);
+                      }}
+                      className="min-h-[44px] rounded-xl px-2 py-1.5 bg-[#f5f3ff] text-on-surface border border-purple-100 flex flex-col items-center justify-center text-center active:scale-95 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-primary">campaign</span>
+                      <span className="text-[11px] mt-0.5 font-bold">Broadcast</span>
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        triggerToast(`Route bypass cleared with campus traffic team.`);
+                      }}
+                      className="min-h-[44px] rounded-xl px-2 py-1.5 bg-[#f5f3ff] text-on-surface border border-purple-100 flex flex-col items-center justify-center text-center active:scale-95 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-secondary">alt_route</span>
+                      <span className="text-[11px] mt-0.5 font-bold">Reroute Gate 4</span>
+                    </button>
+
+                    <button 
+                      onClick={() => navigate('/admin-profile')}
+                      className="min-h-[44px] bg-[#09090b] text-white rounded-xl px-2 py-1.5 flex flex-col items-center justify-center text-center active:scale-95 shadow-sm transition-all"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-purple-300">manage_accounts</span>
+                      <span className="text-[11px] mt-0.5 font-bold">Fleet Console</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* STUDENT BOTTOM PANEL (BUS #14 ONLY) */
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-[11px] uppercase tracking-wider text-secondary font-bold flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[15px]">timer</span>
+                        Next Bus Arrival
+                      </span>
+                      <div className="flex items-baseline gap-1.5 mt-0.5">
+                        <span className="text-[26px] font-extrabold text-[#09090b]">{formatTime(secondsRemaining)}</span>
+                        <span className="text-[12px] text-on-surface-variant font-medium">(1.8 km away)</span>
+                      </div>
+                    </div>
+                    <span className="bg-purple-100 text-primary border border-purple-200 px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                      On Schedule
+                    </span>
+                  </div>
+
+                  {/* Stops flow card */}
+                  <div className="bg-[#f5f3ff] border border-purple-100 rounded-2xl p-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between text-[13px]">
+                      <div>
+                        <span className="text-[10px] uppercase text-on-surface-variant block">Next Stop</span>
+                        <span className="font-semibold text-on-surface">Meadow Park (Departing now)</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] uppercase text-secondary font-bold block">Your Stop</span>
+                        <span className="font-bold text-primary">{selectedStop.name}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-purple-100 flex items-center justify-between text-[12px]">
+                      <span className="text-on-surface-variant flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[16px]">airline_seat_recline_normal</span>
+                        Occupancy: <strong className="text-primary">82% Full</strong>
+                      </span>
+                      <span className="text-secondary font-bold">6 seats open</span>
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <button 
+                      onClick={() => {
+                        setAlarmActive(!alarmActive);
+                        triggerToast(alarmActive ? "Proximity alarm removed." : "Alarm set! Vibration at 200m distance.");
+                      }}
+                      className={`min-h-[44px] rounded-xl px-2 py-1.5 flex flex-col items-center justify-center text-center transition-all border ${alarmActive ? 'bg-purple-100 text-primary border-purple-300 font-bold' : 'bg-[#f5f3ff] text-on-surface border-purple-100'}`}
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-secondary">
+                        {alarmActive ? 'notifications_active' : 'notifications'}
+                      </span>
+                      <span className="text-[11px] mt-0.5">{alarmActive ? 'Alarm On' : 'Set Alarm'}</span>
+                    </button>
+
+                    <button 
+                      onClick={handleShare}
+                      className="min-h-[44px] bg-[#f5f3ff] text-on-surface rounded-xl px-2 py-1.5 flex flex-col items-center justify-center text-center transition-all border border-purple-100 active:scale-95"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-secondary">share_location</span>
+                      <span className="text-[11px] mt-0.5">Share Live</span>
+                    </button>
+
+                    <a 
+                      href="tel:+919876543210"
+                      className="min-h-[44px] bg-[#09090b] text-white rounded-xl px-2 py-1.5 flex flex-col items-center justify-center text-center transition-all active:scale-95 shadow-sm"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-purple-300">phone_in_talk</span>
+                      <span className="text-[11px] mt-0.5 font-bold">Call Driver</span>
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <BottomNavigation current="track-bus" />
+        </div>
+      );
+    };
+
+    // --- SCREEN 4: ROUTE DETAILS & STOPS TIMELINE ---
+    const RouteDetailsPage = () => {
+      const navigate = useNavigate();
+      const { role, selectedStop, triggerToast } = useTransit();
+      const [alertActive, setAlertActive] = useState(false);
+
+      const downloadPDF = () => {
+        triggerToast("Route 7B Schedule PDF successfully downloaded (310 KB).");
+      };
+
+      return (
+        <div className="flex-1 flex flex-col relative w-full pt-16 bg-[#fcf8fb] max-w-xl mx-auto min-h-screen pb-safe">
+          <AppHeader title="Route Details" onBack={() => navigate(-1)} />
+
+          <div className="flex flex-col w-full px-4 pb-8 space-y-4 mt-3">
+            {/* Title Card */}
+            <div className="bg-white rounded-xl p-4 shadow-xs border border-purple-100">
+              <div className="flex items-center justify-between mb-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-100 text-primary">
+                  <span className="w-2 h-2 rounded-full bg-primary animate-ping"></span>
+                  <span className="text-[11px] uppercase font-bold">Active Live Service</span>
+                </div>
+                <span className="text-[11px] text-[#4a4455] bg-purple-50 px-2 py-0.5 rounded-full font-medium">Zone North</span>
+              </div>
+              <h2 className="text-[20px] font-bold text-[#09090b]">Route 7B - North Campus Express</h2>
+              <p className="text-[13px] text-[#4a4455] mt-1 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[16px] text-primary">alt_route</span>
+                <span>Total 14.2 km • 8 Scheduled Stops • 45 min duration</span>
+              </p>
+            </div>
+
+            {/* Bus Info */}
+            <div className="bg-white rounded-xl p-4 shadow-xs border border-purple-100 space-y-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-[#09090b] text-white flex items-center justify-center text-[18px] font-bold shadow-sm">
+                    #14
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[15px] font-bold text-[#09090b]">Eicher Starline 42S</span>
+                      <span className="px-2 py-0.5 rounded-full bg-purple-100 text-primary text-[10px] font-semibold">AC Fleet</span>
+                    </div>
+                    <p className="text-[12px] text-[#4a4455]">Live telemetry ping: 4 sec ago</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[20px] font-bold text-primary block leading-none">08:04</span>
+                  <span className="text-[10px] text-[#4a4455] uppercase font-semibold">Current ETA</span>
+                </div>
+              </div>
+
+              {/* Shifts grid */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-[#f5f3ff] p-2.5 rounded-lg border border-purple-100/60">
+                  <div className="flex items-center gap-1 text-primary">
+                    <span className="material-symbols-outlined text-[16px]">wb_sunny</span>
+                    <span className="text-[11px] uppercase font-bold">Morning Shift</span>
+                  </div>
+                  <p className="text-[12px] text-[#09090b] mt-0.5 font-semibold">07:40 AM ➔ 08:25 AM</p>
+                </div>
+                <div className="bg-[#f5f3ff] p-2.5 rounded-lg border border-purple-100/60">
+                  <div className="flex items-center gap-1 text-[#4a4455]">
+                    <span className="material-symbols-outlined text-[16px]">bedtime</span>
+                    <span className="text-[11px] uppercase font-bold">Evening Return</span>
+                  </div>
+                  <p className="text-[12px] text-[#09090b] mt-0.5 font-semibold">Departs 05:15 PM</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Stops Progression Timeline */}
+            <div className="bg-white rounded-xl p-4 shadow-xs border border-purple-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-[16px] font-bold text-[#09090b]">Live Stop Progression</h3>
+                  <p className="text-[12px] text-[#4a4455]">Auto-updating with GPS tracker</p>
+                </div>
+                <button 
+                  onClick={() => navigate('/stop-selection')}
+                  className="text-primary text-[12px] font-bold hover:underline"
+                >
+                  Change Stop →
+                </button>
+              </div>
+
+              <div className="relative pl-6 space-y-5 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-purple-200">
+                {/* Stop 1 */}
+                <div className="relative flex items-start gap-2">
+                  <div className="absolute -left-6 top-0.5 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-[12px]">✓</div>
+                  <div className="w-full flex items-center justify-between">
+                    <div>
+                      <h4 className="text-[13px] text-gray-400 line-through">1. North Suburb Depot</h4>
+                      <p className="text-[11px] text-primary">Departed at 07:40 AM</p>
+                    </div>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#f5f3ff] text-gray-500">Passed</span>
+                  </div>
+                </div>
+
+                {/* Stop 2 */}
+                <div className="relative flex items-start gap-2">
+                  <div className="absolute -left-6 top-0.5 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-[12px]">✓</div>
+                  <div className="w-full flex items-center justify-between">
+                    <div>
+                      <h4 className="text-[13px] text-gray-400 line-through">
+                        {role === 'admin' ? "2. High Court" : "2. Oakridge Square"}
+                      </h4>
+                      <p className="text-[11px] text-primary">Departed at 07:52 AM</p>
+                    </div>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#f5f3ff] text-gray-500">Passed</span>
+                  </div>
+                </div>
+
+                {/* Stop 3 (Bus Here) */}
+                <div className="relative flex items-start gap-2">
+                  <div className="absolute -left-6 top-0.5 w-6 h-6 rounded-full bg-[#ede9fe] text-primary border border-primary flex items-center justify-center animate-pulse">
+                    <span className="material-symbols-outlined text-[14px]">directions_bus</span>
+                  </div>
+                  <div className="w-full p-2.5 rounded-lg bg-purple-50 text-[#09090b] border border-purple-200">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-[14px] font-bold">
+                        {role === 'admin' ? "3. AP Secretariat" : "3. Meadow Park Crossing"}
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full bg-primary text-white text-[10px] font-semibold">Live Here</span>
+                    </div>
+                    <p className="text-[12px] text-[#4a4455] mt-0.5">Arrived 08:04 AM • Boarding students</p>
+                  </div>
+                </div>
+
+                {/* Stop 4 (User Assigned) */}
+                <div className="relative flex items-start gap-2">
+                  <div className="absolute -left-6 top-1 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center shadow-md ring-2 ring-purple-300">
+                    <span className="material-symbols-outlined text-[14px]">star</span>
+                  </div>
+                  <div className="w-full p-3 rounded-xl bg-[#09090b] text-white shadow-md space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase bg-primary text-white px-2 py-0.5 rounded-full font-bold">
+                        Your Pickup: {selectedStop.name}
+                      </span>
+                      <span className="text-[14px] font-extrabold text-[#dac5ff]">{selectedStop.eta}</span>
+                    </div>
+                    <h4 className="text-[15px] font-bold text-white">Stop #{selectedStop.num} • Shelter Platform B</h4>
+                    <p className="text-[12px] text-purple-200/80">{selectedStop.walk} away from dorm</p>
+                  </div>
+                </div>
+
+                {/* Stop 5 (Terminal Convergence Point) */}
+                <div className="relative flex items-start gap-2">
+                  <div className="absolute -left-6 top-1 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-[12px] shadow-sm">
+                    ★
+                  </div>
+                  <div className="w-full p-3 rounded-xl bg-purple-50 border border-purple-200 shadow-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase bg-purple-600 text-white px-2 py-0.5 rounded-full font-bold">
+                        Fleet Convergence Hub
+                      </span>
+                      <span className="text-[13px] font-bold text-primary">08:25 AM</span>
+                    </div>
+                    <h4 className="text-[15px] font-bold text-[#09090b]">5. VIT-AP University (Terminal Hub)</h4>
+                    <p className="text-[12px] text-on-surface-variant">Connecting Buses #14, #08, and #21 at Central Campus Bay</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* CTAs */}
+            <div className="space-y-2 pt-1">
+              <button 
+                onClick={() => {
+                  setAlertActive(!alertActive);
+                  triggerToast(alertActive ? "Departure alert disabled" : "5-Min alert activated for your stop!");
+                }}
+                className={`w-full min-h-[48px] rounded-lg text-white font-semibold flex items-center justify-center gap-2 text-[14px] shadow-sm transition-all ${alertActive ? 'bg-primary' : 'bg-[#09090b] hover:bg-black'}`}
+              >
+                <span className="material-symbols-outlined text-[20px] text-[#dac5ff]">
+                  {alertActive ? 'check_circle' : 'notifications_active'}
+                </span>
+                <span>{alertActive ? '5-Min Alert Active (08:07 AM)' : 'Set 5-Min Departure Alert'}</span>
+              </button>
+
+              <button 
+                onClick={downloadPDF}
+                className="w-full min-h-[44px] rounded-lg bg-white border border-purple-200 text-[#09090b] hover:bg-purple-50 flex items-center justify-center gap-2 text-[13px] font-semibold transition-all shadow-xs"
+              >
+                <span className="material-symbols-outlined text-[18px] text-primary">file_download</span>
+                <span>Download Route Schedule PDF (310 KB)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- SCREEN 5: STOP SELECTION & AMENITIES ---
+    const StopSelectionPage = () => {
+      const navigate = useNavigate();
+      const { selectedStop, setSelectedStop, alertPreference, setAlertPreference, triggerToast } = useTransit();
+      const [showModal, setShowModal] = useState(false);
+      const [alternateText, setAlternateText] = useState("");
+
+      const stops = [
+        { id: "stop-3", num: 3, name: "Meadow Park Crossing", dist: "580m away", walk: "~7 min walk", eta: "08:08 AM", amenities: "Shelter available • Solar benches" },
+        { id: "stop-4", num: 4, name: "Pine Valley Junction", dist: "260m away", walk: "~3 min walk", eta: "08:12 AM", amenities: "Shelter available • Solar street lighting • Crosswalk with signal • Monitored campus CCTV", isDefault: true },
+        { id: "stop-5", num: 5, name: "Tech Park Overpass", dist: "1.1 km away", walk: "~14 min walk", eta: "08:17 AM", amenities: "Covered stand • Emergency phone • Wheelchair ramp" },
+        { id: "stop-6", num: 6, name: "North Ring Circle", dist: "1.8 km away", walk: "~22 min walk", eta: "08:24 AM", amenities: "Standard pole marker • Street lighting only" },
+      ];
+
+      const handleConfirm = () => {
+        triggerToast(`Pickup stop updated to ${selectedStop.name}! Alert: ${alertPreference}`);
+        navigate(-1);
+      };
+
+      return (
+        <div className="flex-1 flex flex-col relative w-full pt-16 bg-surface max-w-xl mx-auto min-h-screen pb-safe">
+          <AppHeader title="Stop Selection" onBack={() => navigate(-1)} />
+
+          <div className="flex flex-col w-full pb-8">
+            <div className="px-4 pt-3 pb-2">
+              <div className="bg-gradient-to-r from-purple-100 to-purple-50 rounded-xl p-3 flex items-center justify-between border border-purple-200/60 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#09090b] text-white flex items-center justify-center font-bold text-[14px]">
+                    7B
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-secondary">Active Line</span>
+                    <h2 className="text-[15px] font-bold text-[#09090b]">North Campus Express</h2>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-primary bg-white px-2.5 py-1 rounded-full border border-purple-200">
+                  Live Synced
+                </span>
+              </div>
+            </div>
+
+            {/* List of Stops */}
+            <div className="px-4 flex flex-col gap-2.5 mt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[16px] font-bold text-[#09090b]">Available Stops</span>
+                <span className="text-[11px] text-secondary font-bold">Walk times calibrated</span>
+              </div>
+
+              {stops.map(stop => {
+                const isSelected = stop.id === selectedStop.id;
+                return (
+                  <div 
+                    key={stop.id}
+                    onClick={() => setSelectedStop(stop)}
+                    className={`relative rounded-2xl p-3.5 transition-all cursor-pointer border ${isSelected ? 'bg-white ring-2 ring-secondary shadow-md border-transparent' : 'bg-white border-purple-100 shadow-xs hover:border-purple-300'}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-[14px] shrink-0 ${isSelected ? 'bg-primary text-white shadow-xs' : 'bg-purple-100 text-[#09090b]'}`}>
+                          {stop.num}
+                        </div>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h3 className="text-[15px] font-bold text-[#09090b]">{stop.name}</h3>
+                            {stop.isDefault && (
+                              <span className="px-2 py-0.5 rounded-full bg-purple-100 text-primary text-[10px] uppercase font-extrabold">
+                                Assigned Default
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-[12px] text-on-surface-variant mt-1">
+                            <span className="font-bold text-secondary">{stop.dist}</span>
+                            <span>•</span>
+                            <span>{stop.walk}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-1 ${isSelected ? 'bg-secondary text-white' : 'bg-gray-100'}`}>
+                        {isSelected && <span className="material-symbols-outlined text-[16px] font-bold">check</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Amenities for selected */}
+            <div className="px-4 mt-4">
+              <div className="bg-[#f5f3ff] rounded-2xl p-4 border border-purple-200">
+                <div className="flex items-center justify-between pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[18px] text-secondary">verified_user</span>
+                    <span className="text-[12px] uppercase font-bold text-[#09090b]">Amenities &amp; Safety</span>
+                  </div>
+                  <div className="bg-[#09090b] text-white px-2 py-0.5 rounded text-[12px] font-bold">
+                    ETA {selectedStop.eta}
+                  </div>
+                </div>
+                <p className="text-[13px] text-[#09090b] font-medium">{selectedStop.amenities}</p>
+              </div>
+            </div>
+
+            {/* Proximity Alert Segment */}
+            <div className="px-4 mt-4">
+              <div className="bg-white rounded-2xl p-4 border border-purple-100 shadow-xs flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[14px] font-bold text-[#09090b]">Proximity Alert Preference</span>
+                  <span className="text-[11px] bg-purple-100 text-primary px-2 py-0.5 rounded-full font-bold">{alertPreference}</span>
+                </div>
+                <div className="grid grid-cols-4 gap-1 bg-purple-50 p-1 rounded-xl">
+                  {["5 mins", "10 mins", "15 mins", "1 km"].map(opt => (
+                    <button
+                      key={opt}
+                      onClick={() => setAlertPreference(opt)}
+                      className={`py-1.5 text-center rounded-lg text-[12px] font-semibold transition-all ${alertPreference === opt ? 'bg-primary text-white shadow-xs' : 'text-[#09090b] hover:text-primary'}`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="px-4 mt-5 space-y-2">
+              <button 
+                onClick={handleConfirm}
+                className="w-full h-12 rounded-xl bg-primary hover:bg-purple-800 text-white text-[14px] font-bold flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all"
+              >
+                <span className="material-symbols-outlined text-[20px]">check_circle</span>
+                <span>Confirm &amp; Update Pickup Point</span>
+              </button>
+              <div className="text-center">
+                <button 
+                  onClick={() => setShowModal(true)}
+                  className="text-secondary text-[12px] font-bold hover:underline py-1"
+                >
+                  + Request Temporary Alternate Stop
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Alternate Stop Modal */}
+          {showModal && (
+            <div className="fixed inset-0 z-50 bg-[#09090b]/60 backdrop-blur-xs flex items-end justify-center">
+              <div className="w-full max-w-xl bg-white rounded-t-3xl p-5 shadow-2xl flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[16px] font-bold text-[#09090b]">Request Alternate Stop</h3>
+                  <button onClick={() => setShowModal(false)} className="text-gray-500 text-[20px]">✕</button>
+                </div>
+                <p className="text-[12px] text-on-surface-variant">Driver and campus dispatch will evaluate route safety clearances within 90 seconds.</p>
+                <input 
+                  type="text" 
+                  value={alternateText}
+                  onChange={(e) => setAlternateText(e.target.value)}
+                  placeholder="e.g. Lab Quad Entrance / Library Bay"
+                  className="w-full h-11 px-3 bg-purple-50 rounded-xl text-[13px] border border-purple-200 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <div className="flex gap-2 pt-2">
+                  <button onClick={() => setShowModal(false)} className="flex-1 h-11 bg-gray-100 rounded-xl text-[13px] font-bold">Cancel</button>
+                  <button 
+                    onClick={() => {
+                      if (!alternateText.trim()) return;
+                      setShowModal(false);
+                      triggerToast(`Request for '${alternateText}' dispatched to Control Room.`);
+                      setAlternateText("");
+                    }} 
+                    className="flex-1 h-11 bg-primary text-white rounded-xl text-[13px] font-bold"
+                  >
+                    Submit Request
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // --- SCREEN 6: COUNTDOWN & WALKING ADVISORY ---
+    const EtaCountdownPage = () => {
+      const navigate = useNavigate();
+      const { selectedStop } = useTransit();
+      const [seconds, setSeconds] = useState(493); // 8m 13s
+      const [reminderActive, setReminderActive] = useState(true);
+
+      useEffect(() => {
+        const interval = setInterval(() => {
+          setSeconds(s => (s > 0 ? s - 1 : 0));
+        }, 1000);
+        return () => clearInterval(interval);
+      }, []);
+
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+
+      return (
+        <div className="flex-1 flex flex-col relative w-full pt-16 bg-surface max-w-xl mx-auto min-h-screen pb-safe">
+          <AppHeader title="Route Details" onBack={() => navigate(-1)} />
+
+          <div className="flex flex-col w-full px-4 pb-8 space-y-4 mt-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-secondary font-bold">Active Trip Tracking</p>
+                <h2 className="text-[18px] font-bold text-on-surface">Route 14 Express</h2>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-purple-100 text-primary text-[11px] font-bold">
+                GPS LIVE
+              </span>
+            </div>
+
+            {/* Circular Countdown Hero */}
+            <div className="relative rounded-xl bg-white p-6 shadow-sm border border-purple-100 flex flex-col items-center text-center">
+              <div className="relative w-44 h-44 flex items-center justify-center my-2">
+                <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 160 160">
+                  <circle cx="80" cy="80" r="70" fill="transparent" stroke="#ede9fe" strokeWidth="8" />
+                  <circle 
+                    cx="80" cy="80" r="70" 
+                    fill="transparent" 
+                    stroke="#7c3aed" 
+                    strokeWidth="9" 
+                    strokeDasharray="440" 
+                    strokeDashoffset={440 * (1 - seconds / 600)} 
+                    strokeLinecap="round" 
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Arriving In</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-[32px] font-extrabold text-[#09090b]">{mins < 10 ? `0${mins}` : mins}</span>
+                    <span className="text-[12px] font-bold text-on-surface-variant">m</span>
+                    <span className="text-[32px] font-extrabold text-secondary">{secs < 10 ? `0${secs}` : secs}</span>
+                    <span className="text-[12px] font-bold text-on-surface-variant">s</span>
+                  </div>
+                  <span className="text-[10px] text-primary bg-purple-100 px-2 py-0.5 rounded-full font-semibold">High Accuracy</span>
+                </div>
+              </div>
+
+              <div className="mt-2 w-full bg-[#f8f5ff] rounded-lg p-3 border border-purple-100 text-[12px]">
+                <div className="flex justify-between pb-1">
+                  <span className="text-on-surface-variant">Arrival Window</span>
+                  <span className="font-bold text-primary">08:11 AM – 08:14 AM</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-on-surface-variant">Confidence Rating</span>
+                  <span className="font-bold text-secondary">96% Real-time GPS</span>
+                </div>
+              </div>
+
+              <p className="mt-3 text-[13px] text-on-surface-variant flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-secondary"></span>
+                <span>Bus <strong>#14</strong> is <strong>2.1 km away</strong> from {selectedStop.name}</span>
+              </p>
+            </div>
+
+            {/* Walking Advisory */}
+            <div className="rounded-xl bg-[#f5f2fe] border border-purple-200 p-4 shadow-xs flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-purple-100 text-primary flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[20px]">directions_walk</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-secondary uppercase font-bold">Departure Advisory</span>
+                  <span className="px-1.5 py-0.5 rounded bg-secondary text-white text-[10px] font-bold">In 2 min</span>
+                </div>
+                <p className="text-[16px] font-bold text-[#09090b] mt-0.5">Leave by 08:05 AM</p>
+                <p className="text-[12px] text-on-surface mt-1 leading-snug">
+                  Your walking distance to {selectedStop.name} is <strong>{selectedStop.dist}</strong> ({selectedStop.walk}). Leave now with a <strong>5 min cushion buffer</strong>.
+                </p>
+              </div>
+            </div>
+
+            {/* Telemetry card */}
+            <div className="rounded-xl bg-white p-4 shadow-xs border border-purple-100">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-1 text-[14px] font-bold">
+                  <span className="material-symbols-outlined text-[18px] text-secondary">sensors</span>
+                  <span>Vehicle Telemetry</span>
+                </div>
+                <span className="text-[11px] text-on-surface-variant">Unit #BUS-014</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-[#0f0b15] text-white p-3">
+                  <span className="text-[11px] uppercase tracking-wider text-purple-200">Speed</span>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <span className="text-[24px] font-extrabold">36</span>
+                    <span className="text-[12px] text-purple-200">km/h</span>
+                  </div>
+                  <p className="text-[10px] text-purple-300 mt-0.5">Normal cruising</p>
+                </div>
+
+                <div className="rounded-lg bg-[#f8f5ff] border border-purple-100 p-3">
+                  <span className="text-[11px] uppercase tracking-wider text-on-surface-variant">Occupancy</span>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <span className="text-[20px] font-extrabold text-[#09090b]">38</span>
+                    <span className="text-[12px] text-on-surface-variant">/ 44 seats</span>
+                  </div>
+                  <p className="text-[10px] text-primary mt-0.5 font-bold">Moderate crowd</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Reminder switch */}
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white shadow-xs border border-purple-100">
+              <div>
+                <p className="text-[14px] font-bold text-on-surface">Proximity Reminder</p>
+                <p className="text-[12px] text-on-surface-variant">Notify me 5 mins before bus reaches my stop</p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setReminderActive(!reminderActive)}
+                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors ${reminderActive ? 'bg-primary' : 'bg-gray-300'}`}
+              >
+                <span className={`inline-block h-6 w-6 rounded-full bg-white shadow-md transform transition-transform ${reminderActive ? 'translate-x-5' : 'translate-x-0'}`}></span>
+              </button>
+            </div>
+
+            <button 
+              onClick={() => navigate('/track-bus')}
+              className="w-full h-12 rounded-lg bg-[#0f0b15] text-white font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform"
+            >
+              <span className="material-symbols-outlined text-[18px] text-purple-300">map</span>
+              <span>View On Live Map</span>
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    // --- SCREEN 7: NOTIFICATIONS & ALERTS ---
+    const NotificationsPage = () => {
+      const navigate = useNavigate();
+      const { activeAlerts, setActiveAlerts, triggerToast } = useTransit();
+      const [filter, setFilter] = useState("all");
+
+      const handleMarkAllRead = () => {
+        setActiveAlerts(prev => prev.map(a => ({ ...a, isUnread: false })));
+        triggerToast("All transit alerts marked as read.");
+      };
+
+      const filtered = activeAlerts.filter(a => filter === "all" || a.category === filter);
+
+      return (
+        <div className="flex-1 flex flex-col relative w-full pt-16 pb-24 bg-surface max-w-xl mx-auto min-h-screen">
+          <AppHeader title="BusQ" subtitle="Notifications" />
+
+          <div className="flex flex-col w-full px-4 space-y-4 mt-3 pb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-[20px] font-bold text-primary">Transit Alerts</h2>
+                <p className="text-[12px] text-on-surface-variant">Live updates, route advisories &amp; proximity pings</p>
+              </div>
+              <button 
+                onClick={handleMarkAllRead}
+                className="flex items-center gap-1 px-3 py-1 rounded-full bg-purple-100 text-primary text-[11px] font-bold active:scale-95 transition-transform"
+              >
+                <span className="material-symbols-outlined text-[16px]">done_all</span>
+                <span>Mark Read</span>
+              </button>
+            </div>
+
+            {/* Filter chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+              {[
+                { id: "all", label: "All Alerts", count: activeAlerts.length },
+                { id: "proximity", label: "Proximity", count: activeAlerts.filter(a => a.category === 'proximity').length },
+                { id: "delay", label: "Delays", count: activeAlerts.filter(a => a.category === 'delay').length },
+                { id: "news", label: "News", count: activeAlerts.filter(a => a.category === 'news').length }
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setFilter(f.id)}
+                  className={`px-3 py-1 rounded-full text-[12px] font-semibold flex items-center gap-1.5 whitespace-nowrap transition-all ${filter === f.id ? 'bg-primary text-white' : 'bg-purple-100/60 text-on-surface-variant hover:text-on-surface'}`}
+                >
+                  <span>{f.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${filter === f.id ? 'bg-white text-primary' : 'bg-purple-200 text-primary'}`}>
+                    {f.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Alert items */}
+            <div className="flex flex-col space-y-3">
+              {filtered.map(alert => (
+                <article 
+                  key={alert.id}
+                  className={`relative overflow-hidden rounded-xl bg-white p-4 shadow-xs border transition-all ${!alert.isUnread ? 'opacity-80 border-gray-100' : 'border-purple-200 hover:shadow-md'}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-100 text-primary flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-[20px]">
+                        {alert.category === 'proximity' ? 'directions_bus' : alert.category === 'delay' ? 'traffic' : 'campaign'}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="px-2 py-0.5 rounded bg-[#09090b] text-white text-[10px] font-bold">
+                          {alert.tag}
+                        </span>
+                        <span className="text-[11px] text-on-surface-variant">{alert.time}</span>
+                      </div>
+                      <h3 className="text-[15px] font-bold text-[#09090b] mb-1 leading-snug">{alert.title}</h3>
+                      <p className="text-[13px] text-on-surface-variant leading-snug">{alert.body}</p>
+
+                      {alert.eta && (
+                        <div className="flex items-center justify-between pt-2 mt-2 border-t border-purple-50">
+                          <span className="text-[13px] font-bold text-primary">{alert.eta}</span>
+                          <button 
+                            onClick={() => navigate('/track-bus')}
+                            className="px-3 py-1 rounded-lg bg-primary text-white text-[11px] font-bold active:scale-95 transition-transform"
+                          >
+                            View Live Bus
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <BottomNavigation current="notifications" />
+        </div>
+      );
+    };
+
+    // --- SCREEN 8: STUDENT PROFILE & DIGITAL NFC PASS ---
+    const ProfilePage = () => {
+      const navigate = useNavigate();
+      const { user, selectedStop, triggerToast, setDialog } = useTransit();
+      const [walletSynced, setWalletSynced] = useState(false);
+
+      const handleWallet = () => {
+        setWalletSynced(true);
+        triggerToast("Pass synced with Apple Wallet / Google Pay!");
+      };
+
+      const handleSignOut = () => {
+        setDialog({
+          title: "Sign Out",
+          msg: "Are you sure you want to sign out of BusQ on this device?",
+          showCancel: true,
+          onConfirm: () => {
+            triggerToast("Signed out successfully.");
+            navigate("/");
+          }
+        });
+      };
+
+      return (
+        <div className="flex-1 flex flex-col relative w-full pt-16 pb-24 bg-surface max-w-xl mx-auto min-h-screen">
+          <AppHeader title="BusQ" subtitle="Profile" />
+
+          <div className="flex flex-col w-full px-4 pb-6 space-y-4 mt-3">
+            {/* Student Header Card */}
+            <section className="bg-white rounded-xl p-4 shadow-xs border border-purple-100 flex items-start gap-4">
+              <div className="relative shrink-0">
+                <div className="w-18 h-18 rounded-full overflow-hidden shadow-[0_0_0_3px_#a855f7]">
+                  <img 
+                    alt="Ananya Sharma" 
+                    className="w-16 h-16 rounded-full object-cover"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDhWsvqcRvGrakUc7HixtsbuTd4lQJhbSg5wqi8hgSXhuQYufi5TIY3SOJeOctbszTrw-7s0EKIVnFz0l9rgVdWyYBGhK1LsWC0J7QUEncPWZi36KOID13rLUo8luAjtnwTDXD0Eu8gRnK7A21oIH0bvfoG1j1WbH_6YQ3NKDCul33MLh1lrnmJh2_Teo1U6nj_8DUGic4qLr87A2r7iuvWm8rlh1jIxs0p8gbkmo1B8cVETjTqv556"
+                  />
+                </div>
+                <span className="absolute -bottom-1 -right-1 bg-secondary text-white w-5 h-5 rounded-full flex items-center justify-center text-[12px] shadow-sm">
+                  ✓
+                </span>
+              </div>
+              <div className="flex flex-col min-w-0 flex-1 justify-center">
+                <h2 className="text-[18px] font-bold text-on-surface truncate">{user.name}</h2>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="bg-purple-100 text-primary px-2 py-0.5 rounded-full text-[10px] font-bold">{user.id}</span>
+                  <span className="text-secondary text-[11px] font-semibold">• Active Student</span>
+                </div>
+                <p className="text-[12px] text-on-surface-variant mt-0.5">{user.dept}</p>
+              </div>
+            </section>
+
+            {/* Digital Transit Pass */}
+            <section className="w-full relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#09090b] via-[#1a0b2e] to-[#4c1d95] text-white shadow-xl p-5 border border-purple-500/30">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] tracking-wider uppercase text-purple-300 font-bold">NFC Tap &amp; Ride Ready</span>
+                  <h3 className="text-[18px] font-extrabold text-white tracking-tight">SEMESTER 4 COMMUTE PASS</h3>
+                  <p className="text-[11px] text-purple-200">Campus Transit ID: #BQ-8841-N</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-purple-600/30 border border-purple-400/40 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[20px] text-purple-200">contactless</span>
+                </div>
+              </div>
+
+              <div className="my-4 bg-black/40 backdrop-blur-sm rounded-xl p-3 grid grid-cols-2 gap-2 border border-purple-500/20 text-[12px]">
+                <div className="col-span-2">
+                  <span className="text-purple-300 text-[10px] uppercase font-bold block">Assigned Route</span>
+                  <span className="font-bold text-white text-[14px]">{user.route}</span>
+                </div>
+                <div>
+                  <span className="text-purple-300 text-[10px] uppercase font-bold block">Bus Unit</span>
+                  <span className="font-bold text-white">{user.bus}</span>
+                </div>
+                <div>
+                  <span className="text-purple-300 text-[10px] uppercase font-bold block">Reserved Seat</span>
+                  <span className="font-bold text-white">{user.seat}</span>
+                </div>
+              </div>
+
+              {/* QR emulator */}
+              <div className="flex items-center justify-between bg-black/40 backdrop-blur-sm rounded-xl p-3 border border-purple-500/20">
+                <div>
+                  <span className="text-[10px] uppercase text-purple-300 font-bold block">Validity</span>
+                  <span className="text-[12px] font-semibold text-white">Aug 2024 – Dec 2024</span>
+                  <span className="text-[10px] text-emerald-400 block mt-0.5">✓ Active &amp; Verified</span>
+                </div>
+                <div className="w-14 h-14 bg-white p-1 rounded-lg flex items-center justify-center text-primary font-mono text-[9px] font-bold text-center border border-purple-200">
+                  QR PASS
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <button 
+                  onClick={handleWallet}
+                  disabled={walletSynced}
+                  className={`w-full py-3 rounded-xl text-[13px] font-bold flex items-center justify-center gap-2 transition-all ${walletSynced ? 'bg-purple-900/60 text-purple-200' : 'bg-gradient-to-r from-purple-200 to-purple-100 text-purple-950 hover:bg-white active:scale-95'}`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
+                  <span>{walletSynced ? "✓ Synced with Device Wallet" : "Add to Apple Wallet / Google Pay"}</span>
+                </button>
+              </div>
+            </section>
+
+            {/* Commute Preferences */}
+            <section className="bg-white rounded-xl shadow-xs border border-purple-100 overflow-hidden flex flex-col">
+              <button 
+                onClick={() => navigate('/stop-selection')}
+                className="px-4 py-3.5 flex items-center justify-between hover:bg-purple-50 text-left border-b border-gray-100 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-secondary text-[20px]">pin_drop</span>
+                  <div>
+                    <span className="text-[13px] font-bold block">Default Pickup Point</span>
+                    <span className="text-[12px] text-on-surface-variant">{selectedStop.name} (Stop #{selectedStop.num})</span>
+                  </div>
+                </div>
+                <span className="material-symbols-outlined text-gray-400">chevron_right</span>
+              </button>
+
+              <button 
+                onClick={() => navigate('/notifications')}
+                className="px-4 py-3.5 flex items-center justify-between hover:bg-purple-50 text-left border-b border-gray-100 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-secondary text-[20px]">notifications_active</span>
+                  <div>
+                    <span className="text-[13px] font-bold block">Proximity Alerts</span>
+                    <span className="text-[12px] text-secondary font-medium">Notify 5 mins before arrival</span>
+                  </div>
+                </div>
+                <span className="material-symbols-outlined text-gray-400">chevron_right</span>
+              </button>
+
+              <div className="p-3 text-center">
+                <button 
+                  onClick={handleSignOut}
+                  className="text-error text-[13px] font-semibold hover:underline flex items-center justify-center gap-1 mx-auto"
+                >
+                  <span className="material-symbols-outlined text-[18px]">logout</span>
+                  <span>Sign Out of BusQ</span>
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <BottomNavigation current="profile" />
+        </div>
+      );
+    };
+
+    // --- SCREEN 9: EMERGENCY SOS & ASSISTANCE ---
+    const EmergencyPage = () => {
+      const navigate = useNavigate();
+      const { triggerToast, setDialog } = useTransit();
+      const [holdProgress, setHoldProgress] = useState(0);
+      const [sosDispatched, setSosDispatched] = useState(false);
+      const [isHolding, setIsHolding] = useState(false);
+
+      useEffect(() => {
+        let interval;
+        if (isHolding && !sosDispatched) {
+          interval = setInterval(() => {
+            setHoldProgress(prev => {
+              if (prev >= 100) {
+                clearInterval(interval);
+                setSosDispatched(true);
+                setIsHolding(false);
+                triggerToast("SOS Signal Dispatched to Security Control Room!");
+                return 100;
+              }
+              return prev + 5;
+            });
+          }, 100);
+        } else if (!isHolding && !sosDispatched) {
+          setHoldProgress(0);
+        }
+        return () => clearInterval(interval);
+      }, [isHolding, sosDispatched]);
+
+      const handleIncidentTap = (title) => {
+        setDialog({
+          title: "Flag Campus Issue",
+          msg: `Confirm reporting "${title}" to Campus Transit Desk?`,
+          showCancel: true,
+          onConfirm: () => triggerToast(`Report logged: "${title}". Driver alerted.`)
+        });
+      };
+
+      return (
+        <div className="flex-1 flex flex-col relative w-full pt-16 bg-surface max-w-xl mx-auto min-h-screen pb-safe">
+          <AppHeader title="Emergency Assistance" onBack={() => navigate(-1)} />
+
+          <div className="flex flex-col w-full px-4 pb-8 space-y-4 mt-3">
+            {/* Urgent Protocol banner */}
+            <section className="bg-red-50 text-red-950 border border-red-200 rounded-xl p-3.5 shadow-xs">
+              <div className="flex items-start gap-2.5">
+                <div className="p-1 bg-red-600 text-white rounded-lg flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[18px]">shield</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-[15px] font-bold text-red-950">Emergency Assistance Protocol</h2>
+                  <p className="text-[12px] text-red-900/90 mt-0.5">
+                    Live GPS (12.9716° N, 77.5946° E) and telemetry for Bus #14 will be relayed upon activation.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* Hold SOS Button */}
+            <section className="bg-white border border-purple-100 rounded-xl p-5 flex flex-col items-center text-center shadow-xs">
+              <span className="text-[11px] uppercase tracking-wider text-red-600 font-bold flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-red-600 animate-ping"></span>
+                High Priority Trigger
+              </span>
+
+              <div className="relative my-4 flex items-center justify-center">
+                <svg className="w-36 h-36 transform -rotate-90 pointer-events-none absolute z-10" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="44" fill="transparent" stroke="#ede9fe" strokeWidth="6" />
+                  <circle 
+                    cx="50" cy="50" r="44" 
+                    fill="transparent" 
+                    stroke="#dc2626" 
+                    strokeWidth="6" 
+                    strokeDasharray="276.46" 
+                    strokeDashoffset={276.46 * (1 - holdProgress / 100)} 
+                    strokeLinecap="round" 
+                  />
+                </svg>
+
+                <button 
+                  onMouseDown={() => setIsHolding(true)}
+                  onMouseUp={() => setIsHolding(false)}
+                  onTouchStart={() => setIsHolding(true)}
+                  onTouchEnd={() => setIsHolding(false)}
+                  className={`relative z-20 w-28 h-28 rounded-full text-white shadow-xl flex flex-col items-center justify-center select-none active:scale-95 transition-transform ${sosDispatched ? 'bg-[#09090b]' : 'bg-gradient-to-br from-red-600 to-red-700'}`}
+                >
+                  <span className="material-symbols-outlined text-[32px]">e911_emergency</span>
+                  <span className="text-[14px] font-extrabold tracking-widest mt-0.5">
+                    {sosDispatched ? 'ACTIVE' : 'SOS'}
+                  </span>
+                </button>
+              </div>
+
+              <h3 className="text-[13px] font-bold text-on-surface">
+                {sosDispatched ? "EMERGENCY DISPATCH INITIATED" : isHolding ? "KEEP HOLDING..." : "PRESS & HOLD FOR 3 SECONDS"}
+              </h3>
+              <p className="text-[12px] text-on-surface-variant max-w-xs mt-1">
+                Instantly dispatches distress tokens to Campus Security Control Room.
+              </p>
+
+              {sosDispatched && (
+                <div className="mt-3 w-full bg-[#09090b] text-white rounded-lg p-2.5 flex items-center justify-center gap-2 text-[12px] font-bold text-emerald-400">
+                  <span>✓ Distress Signal Dispatched • Units En Route</span>
+                </div>
+              )}
+            </section>
+
+            {/* Emergency Contacts */}
+            <section className="space-y-2">
+              <h3 className="text-[16px] font-bold text-[#09090b]">Emergency Dispatch Lines</h3>
+
+              <div className="space-y-1.5">
+                {[
+                  { name: "Campus Security Dispatch", number: "Ext. 100 / 1-800-555-CAMPUS", tel: "18005552267", icon: "local_police" },
+                  { name: "Transport Safety Officer (Prof. Meenakshi)", number: "+1 (800) 555-8726", tel: "18005558726", icon: "supervisor_account" },
+                  { name: "On-Duty Driver (Rajesh Kumar)", number: "+1 (800) 555-0194", tel: "18005550194", icon: "directions_bus" },
+                  { name: "Women's Safety Helpline", number: "Toll Free: 1091 (24/7)", tel: "1091", icon: "shield_with_heart" }
+                ].map((c, i) => (
+                  <div key={i} className="bg-white border border-purple-100 rounded-xl p-3 flex items-center justify-between shadow-xs">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-purple-100 text-primary flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-[18px]">{c.icon}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-[#09090b] truncate">{c.name}</p>
+                        <p className="text-[11px] text-on-surface-variant truncate">{c.number}</p>
+                      </div>
+                    </div>
+                    <a 
+                      href={`tel:${c.tel}`}
+                      className="bg-primary hover:bg-purple-800 text-white px-3 py-1.5 rounded-lg text-[12px] font-bold flex items-center gap-1 shrink-0 active:scale-95 transition-transform"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">call</span>
+                      <span>Call</span>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Incident Flags */}
+            <section className="space-y-2">
+              <h3 className="text-[16px] font-bold text-[#09090b]">Quick Incident Flag</h3>
+              <div className="space-y-1.5">
+                {[
+                  "Bus Breakdown / Engine Stoppage",
+                  "Overcrowding / Rash Driving",
+                  "Harassment / Safety Concern",
+                  "Medical First-Aid Required"
+                ].map((item, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleIncidentTap(item)}
+                    className="w-full text-left bg-white hover:bg-purple-50 p-3 rounded-xl border border-purple-100 flex items-center justify-between text-[13px] font-medium text-on-surface transition-colors active:scale-[0.98]"
+                  >
+                    <span>{item}</span>
+                    <span className="material-symbols-outlined text-purple-400 text-[18px]">chevron_right</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
+        </div>
+      );
+    };
+
+    // --- SCREEN 10: ADMIN FLEET CONSOLE & PROFILE ---
+    const AdminProfilePage = () => {
+      const navigate = useNavigate();
+      const { setRole, adminUser, adminFleet, setAdminFleet, triggerToast, setDialog } = useTransit();
+      const [nfcActive, setNfcActive] = useState(false);
+      const [fleetFilter, setFleetFilter] = useState("all"); // "all" | "active" | "standby" | "fast"
+      const [pingingBusId, setPingingBusId] = useState(null);
+
+      const handleNfc = () => {
+        setNfcActive(true);
+        triggerToast("NFC Supervisor Beacon Active!");
+        setTimeout(() => setNfcActive(false), 2000);
+      };
+
+      const handleHandover = () => {
+        setDialog({
+          title: "Shift Handover Protocol",
+          msg: "Initiate shift handover protocol for Zone A to Afternoon Supervisor?",
+          showCancel: true,
+          onConfirm: () => triggerToast("Handover checklist dispatched to next supervisor on duty.")
+        });
+      };
+
+      const handlePingTelemetry = (bus) => {
+        setPingingBusId(bus.id);
+        setTimeout(() => {
+          setPingingBusId(null);
+          setAdminFleet(prev => prev.map(b => b.id === bus.id ? { ...b, lastPing: "Just now" } : b));
+          triggerToast(`Live GPS ping received from ${bus.number} (${bus.plate}): Speed ${bus.speed}, Fuel ${bus.fuel}.`);
+        }, 800);
+      };
+
+      const handleEmergencyDispatch = (bus) => {
+        setDialog({
+          title: `Priority Dispatch: ${bus.number}`,
+          msg: `Send high-priority express bypass order to Driver ${bus.driver} on ${bus.route}?`,
+          showCancel: true,
+          onConfirm: () => triggerToast(`Priority advisory transmitted to ${bus.number} cabin terminal!`)
+        });
+      };
+
+      const handleSignOut = () => {
+        setDialog({
+          title: "Sign Out Admin",
+          msg: "End Transit Supervisor console session?",
+          showCancel: true,
+          onConfirm: () => {
+            setRole("student");
+            triggerToast("Admin session ended.");
+            navigate("/");
+          }
+        });
+      };
+
+      const filteredFleet = adminFleet.filter(b => {
+        if (fleetFilter === "all") return true;
+        return b.statusType === fleetFilter;
+      });
+
+      return (
+        <div className="flex-1 flex flex-col relative w-full pt-16 pb-24 bg-surface max-w-xl mx-auto min-h-screen">
+          <AppHeader title="Admin Profile" subtitle="BusQ Supervisor Console" role="admin" />
+
+          <div className="flex flex-col w-full px-4 space-y-4 mt-3 pb-6">
+            {/* Live Ops Header Banner */}
+            <div className="bg-surface-container-low rounded-xl p-3 flex items-center justify-between shadow-xs border border-purple-100">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="material-symbols-outlined text-primary text-[18px]">verified_user</span>
+                <span className="text-[11px] font-mono text-primary uppercase font-bold truncate">Authenticated Supervisor</span>
+              </div>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                FLEET DISPATCH ACTIVE
+              </span>
+            </div>
+
+            {/* Supervisor Digital Badge */}
+            <div className="relative rounded-xl bg-gradient-to-br from-[#18181b] via-[#27272a] to-primary p-4 text-white shadow-lg overflow-hidden">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-purple-200 text-[18px]">badge</span>
+                  <span className="text-[10px] font-mono text-purple-200 uppercase tracking-wider">Transport Directorate</span>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-primary-container text-white text-[10px] font-bold">
+                  {adminUser.tier}
+                </span>
+              </div>
+
+              <div className="mt-3 flex items-center gap-3">
+                <img 
+                  alt="Rahul Verma"
+                  className="w-14 h-14 rounded-xl object-cover border border-purple-300/40"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0B-R_M6PtQPoSYENsxY2XzssP33VZzzORY3WUTfGA8h8NK0qekdQB_nuscnkXy1SThsY4UgqznrxOBTy9QHk1f_kJsUtgzSWg0uGj-dI-nn9nyHB2Bj1SdGOCKyQOpxMVstvI_6laYuppPw7PbFtkketIU6xUw4uMCpUxuHnT6hKGUHV3o2haSLYGDX2KopmaGgQ6PEJSbALdgRkgieGrak62EPPFYn5wy1gWbYb2cz6sXYhAk1JL"
+                />
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-[17px] font-bold text-white truncate">{adminUser.name}</h2>
+                  <p className="text-[12px] text-gray-300 truncate">{adminUser.role}</p>
+                  <p className="text-[11px] font-mono text-purple-300">ID: {adminUser.id}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-2 border-t border-white/10 grid grid-cols-2 gap-2">
+                <button 
+                  onClick={handleNfc}
+                  className="h-10 rounded-lg bg-white text-[#09090b] text-[12px] font-bold flex items-center justify-center gap-1 shadow-xs active:scale-95 transition-transform"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-primary">contactless</span>
+                  <span>{nfcActive ? "Transmitting..." : "NFC Access"}</span>
+                </button>
+                <button 
+                  onClick={() => triggerToast("Digital supervisor pass exported.")}
+                  className="h-10 rounded-lg bg-white/20 text-white text-[12px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform"
+                >
+                  <span className="material-symbols-outlined text-[16px]">share</span>
+                  <span>Digital Pass</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Shift Metrics */}
+            <div className="bg-white rounded-xl p-4 shadow-xs border border-purple-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[15px] font-bold text-[#09090b]">Shift Fleet Metrics</h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-100 text-primary font-bold">
+                  3 ACTIVE UNITS TRACKED
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-[#f5f3ff] rounded-lg p-2.5">
+                  <span className="block text-[18px] font-extrabold text-primary font-mono">{adminFleet.length}</span>
+                  <span className="text-[11px] text-on-surface-variant">Fleet In Ops</span>
+                </div>
+                <div className="bg-[#f5f3ff] rounded-lg p-2.5">
+                  <span className="block text-[18px] font-extrabold text-[#09090b] font-mono">3</span>
+                  <span className="text-[11px] text-on-surface-variant">Active Routes</span>
+                </div>
+                <div className="bg-[#f5f3ff] rounded-lg p-2.5">
+                  <span className="block text-[18px] font-extrabold text-emerald-700 font-mono">98.4%</span>
+                  <span className="text-[11px] text-on-surface-variant">On-Time Index</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={handleHandover}
+                className="w-full h-10 rounded-lg bg-[#f0edf0] hover:bg-[#eae7ea] text-[#09090b] text-[12px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px] text-primary">swap_horiz</span>
+                <span>Initiate Shift Handover Protocol</span>
+              </button>
+            </div>
+
+            {/* DEDICATED ADMIN-ONLY FLEET MANAGEMENT & LIVE TELEMETRY SECTION */}
+            <section className="bg-white rounded-2xl p-4 shadow-xs border border-purple-200/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[18px]">directions_bus</span>
+                  </div>
+                  <div>
+                    <h3 className="text-[16px] font-bold text-[#09090b]">Active Fleet Live Status</h3>
+                    <p className="text-[11px] text-on-surface-variant">Admin Console Telemetry • Visible to Dispatchers</p>
+                  </div>
+                </div>
+                <span className="text-[10px] bg-purple-100 text-primary font-mono font-bold px-2 py-0.5 rounded-full">
+                  Admin Only
+                </span>
+              </div>
+
+              {/* Status Filter Chips */}
+              <div className="flex items-center gap-1.5 bg-purple-50 p-1 rounded-xl overflow-x-auto no-scrollbar">
+                {[
+                  { id: "all", label: "All Vehicles (3)" },
+                  { id: "active", label: "En Route" },
+                  { id: "standby", label: "Boarding" },
+                  { id: "fast", label: "Express" }
+                ].map(chip => (
+                  <button
+                    key={chip.id}
+                    onClick={() => setFleetFilter(chip.id)}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${
+                      fleetFilter === chip.id 
+                        ? 'bg-primary text-white shadow-xs' 
+                        : 'text-on-surface-variant hover:text-primary'
+                    }`}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* All Fleet Units (Bus #14, Bus #08, Bus #21) */}
+              <div className="space-y-3 pt-1">
+                {filteredFleet.map(bus => (
+                  <div 
+                    key={bus.id}
+                    className="p-3.5 rounded-xl border border-purple-100 bg-[#fcf8fb] hover:border-purple-300 transition-all shadow-xs flex flex-col gap-2.5"
+                  >
+                    {/* Header line */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 rounded-xl bg-[#09090b] text-white flex items-center justify-center font-bold text-[16px] shadow-sm">
+                          {bus.label}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="text-[15px] font-bold text-[#09090b]">{bus.number}</h4>
+                            <span className="text-[10px] font-mono text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">
+                              {bus.plate}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-on-surface-variant block leading-tight">{bus.route}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          bus.statusType === 'active' 
+                            ? 'bg-purple-100 text-primary border border-purple-200' 
+                            : bus.statusType === 'standby'
+                            ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        }`}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
+                          {bus.status}
+                        </span>
+                        <span className="text-[10px] text-gray-500 font-mono mt-0.5">Ping: {bus.lastPing}</span>
+                      </div>
+                    </div>
+
+                    {/* Operational Telemetry Grid */}
+                    <div className="grid grid-cols-3 gap-2 bg-white rounded-lg p-2.5 border border-purple-100 text-center">
+                      <div>
+                        <span className="text-[10px] text-on-surface-variant uppercase block">Speed</span>
+                        <span className="text-[13px] font-bold font-mono text-[#09090b]">{bus.speed}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-on-surface-variant uppercase block">Occupancy</span>
+                        <span className="text-[13px] font-bold font-mono text-primary">{bus.occupancy}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-on-surface-variant uppercase block">Fuel / SoC</span>
+                        <span className="text-[13px] font-bold font-mono text-emerald-700">{bus.fuel}</span>
+                      </div>
+                    </div>
+
+                    {/* Route position tracker */}
+                    <div className="text-[12px] bg-white rounded-lg p-2.5 border border-purple-100 flex flex-col gap-1">
+                      <div className="flex items-center justify-between text-on-surface-variant">
+                        <span className="flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[16px] text-primary">location_on</span>
+                          <strong className="text-on-surface">{bus.currentLocation}</strong>
+                        </span>
+                        <span className="text-[11px] font-bold text-secondary">{bus.etaNext}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-on-surface-variant pt-1 border-t border-purple-50">
+                        <span>Driver: <strong className="text-on-surface">{bus.driver}</strong></span>
+                        <a href={`tel:${bus.driverPhone.replace(/\s+/g, '')}`} className="text-primary hover:underline font-semibold flex items-center gap-0.5">
+                          <span className="material-symbols-outlined text-[14px]">phone</span>
+                          <span>Call</span>
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Supervisor Quick Actions */}
+                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                      <button 
+                        onClick={() => handlePingTelemetry(bus)}
+                        disabled={pingingBusId === bus.id}
+                        className="h-8 rounded-lg bg-purple-50 hover:bg-purple-100 text-primary text-[11px] font-bold flex items-center justify-center gap-1 border border-purple-200 active:scale-95 transition-all"
+                      >
+                        <span className={`material-symbols-outlined text-[15px] ${pingingBusId === bus.id ? 'animate-spin' : ''}`}>
+                          {pingingBusId === bus.id ? 'sync' : 'sensors'}
+                        </span>
+                        <span>{pingingBusId === bus.id ? 'Pinging GPS...' : 'Ping Telemetry'}</span>
+                      </button>
+
+                      <button 
+                        onClick={() => handleEmergencyDispatch(bus)}
+                        className="h-8 rounded-lg bg-[#09090b] hover:bg-zinc-800 text-white text-[11px] font-bold flex items-center justify-center gap-1 shadow-xs active:scale-95 transition-all"
+                      >
+                        <span className="material-symbols-outlined text-[15px] text-purple-300">send</span>
+                        <span>Priority Order</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Master Control Dispatch Actions */}
+            <div className="bg-white rounded-xl p-4 shadow-xs border border-purple-100 space-y-2">
+              <h3 className="text-[15px] font-bold text-[#09090b]">Master Control Actions</h3>
+
+              <div className="space-y-1.5">
+                <button 
+                  onClick={() => triggerToast("Broadcasting announcement to all 3 active shuttle drivers.")}
+                  className="w-full p-2.5 rounded-lg bg-[#f6f2f5] hover:bg-purple-50 flex items-center justify-between text-left transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">campaign</span>
+                    </div>
+                    <div>
+                      <span className="text-[13px] font-bold text-[#09090b] block">Driver Fleet Broadcast</span>
+                      <span className="text-[11px] text-on-surface-variant">Push bulletin to Bus #14, #08, #21</span>
+                    </div>
+                  </div>
+                  <span className="material-symbols-outlined text-gray-400">chevron_right</span>
+                </button>
+
+                <button 
+                  onClick={() => triggerToast("Detour activated for North Ring Road (+6 min).")}
+                  className="w-full p-2.5 rounded-lg bg-[#f6f2f5] hover:bg-purple-50 flex items-center justify-between text-left transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-900 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">alt_route</span>
+                    </div>
+                    <div>
+                      <span className="text-[13px] font-bold text-[#09090b] block">Roadblock Override</span>
+                      <span className="text-[11px] text-on-surface-variant">North Ring detour (+6m)</span>
+                    </div>
+                  </div>
+                  <span className="material-symbols-outlined text-gray-400">chevron_right</span>
+                </button>
+
+                <button 
+                  onClick={() => navigate('/emergency')}
+                  className="w-full p-2.5 rounded-lg bg-error-container text-on-error-container flex items-center justify-between text-left shadow-xs"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-error text-white flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">e911_emergency</span>
+                    </div>
+                    <div>
+                      <span className="text-[13px] font-bold block">Campus SOS &amp; Police Relay</span>
+                      <span className="text-[11px] opacity-90">Priority channel to Safety Control</span>
+                    </div>
+                  </div>
+                  <span className="material-symbols-outlined">crisis_alert</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Logout */}
+            <div className="pt-2">
+              <button 
+                onClick={handleSignOut}
+                className="w-full h-11 rounded-lg bg-error-container text-error text-[13px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform"
+              >
+                <span className="material-symbols-outlined text-[18px]">logout</span>
+                <span>Sign Out of Admin Console</span>
+              </button>
+            </div>
+          </div>
+
+          <BottomNavigation current="admin-profile" />
+        </div>
+      );
+    };
+
+    // --- APPLICATION ROUTING ENTRY POINT ---
+    const App = () => {
+      return (
+        <TransitProvider>
+          <MemoryRouter initialEntries={["/"]}>
+            <GlobalModals />
+            <Routes>
+              <Route path="/" element={<LoginPage />} />
+              <Route path="/home" element={<HomePage />} />
+              <Route path="/track-bus" element={<TrackBusPage />} />
+              <Route path="/route-details" element={<RouteDetailsPage />} />
+              <Route path="/stop-selection" element={<StopSelectionPage />} />
+              <Route path="/eta-countdown" element={<EtaCountdownPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/emergency" element={<EmergencyPage />} />
+              <Route path="/admin-profile" element={<AdminProfilePage />} />
+            </Routes>
+          </MemoryRouter>
+        </TransitProvider>
+      );
+    };
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
